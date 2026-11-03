@@ -12,32 +12,21 @@ export function dayOffset(offset, from = new Date()) {
 }
 
 function seedState() {
-  const today = new Date();
-  const mondayOffset = (today.getDay() + 6) % 7;
-  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset);
-  const due = (offset, hour = 23) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + offset, hour, 59).toISOString();
   return {
-    profile: { name: "Riya", email: "riya@example.edu", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", semester: "Fall 2026", dateOrder: null },
-    availability: { mon: 2, tue: 2, wed: 2, thu: 2, fri: 2, sat: 4, sun: 3 },
+    profile: { name: "", email: "", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", semester: "", dateOrder: null, setupComplete: false },
+    availability: { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
     overrides: [],
     settings: { minSession: 0.5, maxPerTaskPerDay: 3, bufferDays: 0, earlyStartShare: 0 },
-    courses: [
-      { id: "c-net", name: "Computer Networks", color: "#007AFF", defaults: { assignment: 4, quiz: 2, exam: 10 } },
-      { id: "c-os", name: "Operating Systems", color: "#AF52DE", defaults: { lab: 2, exam: 10 } },
-      { id: "c-db", name: "Database Systems", color: "#008C95", defaults: { assignment: 3, project: 12 } },
-    ],
-    tasks: [
-      { id: "t-1", title: "Networks quiz 3", courseId: "c-net", type: "quiz", dueAt: due(2, 18), optimisticHours: 1.4, likelyHours: 2, pessimisticHours: 3.2, priority: "normal", status: "open", source: "manual", gradeWeight: 8, notes: "Routing and congestion control" },
-      { id: "t-2", title: "OS lab record", courseId: "c-os", type: "lab", dueAt: due(3, 23), optimisticHours: 1.4, likelyHours: 2, pessimisticHours: 3.2, priority: "normal", status: "open", source: "manual", gradeWeight: 5, notes: "" },
-      { id: "t-3", title: "Database assignment 2", courseId: "c-db", type: "assignment", dueAt: due(5, 23), optimisticHours: 2.1, likelyHours: 3, pessimisticHours: 4.8, priority: "normal", status: "open", source: "manual", gradeWeight: 18, notes: "Normalize the schema and add queries" },
-      { id: "t-4", title: "OS mid-sem review", courseId: "c-os", type: "exam", dueAt: due(7, 10), optimisticHours: 7, likelyHours: 10, pessimisticHours: 16, priority: "high", status: "open", source: "manual", gradeWeight: 25, notes: "" },
-      { id: "t-5", title: "Networks lab 5", courseId: "c-net", type: "lab", dueAt: due(9, 23), optimisticHours: 1.4, likelyHours: 2, pessimisticHours: 3.2, priority: "normal", status: "open", source: "manual", gradeWeight: 5, notes: "" },
-    ],
+    courses: [],
+    projects: [],
+    tasks: [],
+    inbox: [],
     workSessions: [],
+    sessionHistory: [],
     missedAllocations: [],
     history: [],
     reminders: [],
-    classes: [{ id: "class-1", name: "CSE 2026 · Section B", role: "member", joinCode: "NETS-26", tasks: [{ id: "shared-1", title: "Networks quiz 3", dueAt: due(2, 18), confirmations: 18 }] }],
+    classes: [],
     appearance: localStorage.getItem("crunchless-theme") || "system",
   };
 }
@@ -52,24 +41,57 @@ export function loadState() {
       const record = (candidate) => candidate && typeof candidate === "object" && !Array.isArray(candidate) ? candidate : {};
       const list = (candidate, fallback) => Array.isArray(candidate) ? candidate : fallback;
       const profile = { ...defaults.profile, ...record(value.profile) };
+      const hasSampleProfile = profile.name === "Riya" && profile.email === "riya@example.edu" && profile.semester === "Fall 2026";
+      const legacyTasks = [
+        ["t-1", "Networks quiz 3"], ["t-2", "OS lab record"], ["t-3", "Database assignment 2"],
+        ["t-4", "OS mid-sem review"], ["t-5", "Networks lab 5"],
+      ];
+      const legacyCourses = [["c-net", "Computer Networks"], ["c-os", "Operating Systems"], ["c-db", "Database Systems"]];
+      const originalTasks = list(value.tasks, []);
+      const originalCourses = list(value.courses, []);
+      const hasLegacySignature = hasSampleProfile
+        && legacyTasks.every(([id, title]) => originalTasks.some((task) => task?.id === id && task.title === title))
+        && legacyCourses.every(([id, name]) => originalCourses.some((course) => course?.id === id && course.name === name));
+      if (hasSampleProfile && hasLegacySignature) {
+        profile.name = "";
+        profile.email = "";
+        profile.semester = "";
+      }
       try { new Intl.DateTimeFormat("en", { timeZone: profile.timezone }); }
       catch { profile.timezone = defaults.profile.timezone; }
-      const tasks = list(value.tasks, defaults.tasks).filter((task) => task && typeof task === "object" && task.id && task.title && Number.isFinite(new Date(task.dueAt).getTime()));
-      const courses = list(value.courses, defaults.courses).filter((course) => course && typeof course === "object" && course.id && course.name).map((course) => ({ ...course, defaults: record(course.defaults) }));
+      const availability = record(value.availability);
+      const hasSampleAvailability = ["mon", "tue", "wed", "thu", "fri"].every((day) => Number(availability[day]) === 2)
+        && Number(availability.sat) === 4 && Number(availability.sun) === 3;
+      const removedTaskIds = new Set();
+      const tasks = originalTasks.filter((task) => {
+        if (!task || typeof task !== "object" || !task.id || !task.title) return false;
+        const isLegacy = legacyTasks.some(([id, title]) => task.id === id && task.title === title && task.source === "manual");
+        if (isLegacy) { removedTaskIds.add(task.id); return false; }
+        return Number.isFinite(new Date(task.dueAt).getTime());
+      });
+      const courses = originalCourses.filter((course) => course && typeof course === "object" && course.id && course.name
+        && !legacyCourses.some(([id, name]) => course.id === id && course.name === name))
+        .map((course) => ({ ...course, defaults: record(course.defaults) }));
+      const cleanRows = (rows) => list(rows, []).filter((row) => !removedTaskIds.has(row?.taskId));
+      const legacyAvailability = hasLegacySignature && hasSampleAvailability;
+      if (!Object.hasOwn(record(value.profile), "setupComplete")) profile.setupComplete = Boolean(profile.name || (!legacyAvailability && Object.values(availability).some((hours) => Number(hours) > 0)));
       return {
         ...defaults,
         ...value,
         profile,
         settings: { ...defaults.settings, ...record(value.settings) },
-        availability: { ...defaults.availability, ...record(value.availability) },
+        availability: { ...defaults.availability, ...(legacyAvailability ? {} : availability) },
         courses,
+        projects: list(value.projects, defaults.projects).filter((project) => project && typeof project === "object" && project.id && String(project.name || "").trim()),
         tasks,
+        inbox: list(value.inbox, defaults.inbox).filter((item) => item && typeof item === "object" && item.id && String(item.title || "").trim()),
         overrides: list(value.overrides, defaults.overrides),
-        workSessions: list(value.workSessions, defaults.workSessions),
-        missedAllocations: list(value.missedAllocations, defaults.missedAllocations),
-        history: list(value.history, defaults.history),
-        reminders: list(value.reminders, defaults.reminders),
-        classes: list(value.classes, defaults.classes),
+        workSessions: cleanRows(value.workSessions),
+        sessionHistory: list(value.sessionHistory, defaults.sessionHistory),
+        missedAllocations: cleanRows(value.missedAllocations),
+        history: list(value.history, defaults.history).filter((entry) => !removedTaskIds.has(entry?.taskId)),
+        reminders: cleanRows(value.reminders),
+        classes: list(value.classes, defaults.classes).filter((item) => !(item?.id === "class-1" && item.name === "CSE 2026 · Section B" && item.joinCode === "NETS-26")),
       };
     }
   } catch {

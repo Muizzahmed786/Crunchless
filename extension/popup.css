@@ -1,0 +1,7 @@
+* { box-sizing: border-box; }
+body { width: 290px; margin: 0; color: #17202b; background: #f7f9fc; font: 13px/1.5 system-ui, sans-serif; }
+main { padding: 18px; }
+strong { font-size: 15px; }
+p { margin: 11px 0; }
+.privacy { color: #536273; font-size: 11px; }
+#status { display: block; margin-top: 14px; color: #1768b3; font-size: 11px; }
