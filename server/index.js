@@ -1,10 +1,13 @@
 import express from "express";
 import { buildSchedule } from "../src/lib/scheduler.js";
 
+import { clerkMiddleware, requireAuth } from "@clerk/express";
+
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 app.disable("x-powered-by");
 app.use(express.json({ limit: "256kb" }));
+app.use(clerkMiddleware());
 
 app.get("/api/health", (_request, response) => {
   response.json({

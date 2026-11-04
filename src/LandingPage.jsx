@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Show, SignInButton, SignUpButton, UserButton, useUser } from "@clerk/react";
 import {
   ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, Clock,
   FolderKanban, Inbox, Layers, Lock, Moon, ShieldCheck, Sparkles,
@@ -55,6 +56,18 @@ export default function LandingPage({ onOpenApp }) {
             <button className="button button-primary" onClick={onOpenApp}>
               Launch Workspace <ArrowRight size={15} />
             </button>
+
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="button button-secondary top-auth-btn" type="button">Sign in</button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="button button-primary top-auth-btn" type="button">Sign up</button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
           </div>
         </nav>
       </header>

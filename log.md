@@ -95,3 +95,18 @@ This log records functional feature implementations in Crunchless, including the
   * Added an interactive UI preview simulator with toggleable tabs (Workload Heatmap, Proactive "Start By" Warnings, Quick-Capture Inbox, and Local Screenshot OCR).
   * Added an interactive FAQ accordion answering key user questions regarding local storage, privacy, offline capabilities, and data portability.
   * Built bi-directional view routing between the landing page and the interactive workspace using URL hash states (`#landing` and `#app`) and header/sidebar navigation actions.
+
+
+---
+
+## 2026-11-05
+
+### 10. Clerk Authentication & User-Scoped Persistence
+* **Date:** 2026-11-05
+* **Components / Files:** `src/main.jsx`, `src/App.jsx`, `src/lib/storage.js`, `server/index.js`, `package.json`
+* **Details:**
+  * Integrated `@clerk/react` authentication provider wrapping the root component tree.
+  * Added authentication controls (`<SignInButton>`, `<SignUpButton>`, and `<UserButton>`) supporting modal sign-in and sign-up flows.
+  * Integrated `useUser()` hook to reflect user avatar and account details in the application shell.
+  * Implemented user-scoped local storage keys (`crunchless-project-v24_${userId}`) ensuring data isolation between distinct accounts while preserving guest fallback.
+  * Added Clerk middleware (`@clerk/express`) to backend API server.

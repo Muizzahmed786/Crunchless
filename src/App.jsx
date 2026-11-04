@@ -119,7 +119,16 @@ function previewLoads(data, plan) {
 }
 
 function App() {
-  const { user, isSignedIn } = useUser();
+  const { user, isSignedIn, isLoaded } = useUser();
+  const [view, setView] = useState(() => {
+  if (typeof window !== "undefined") {
+    const hash = window.location.hash;
+    if (hash.startsWith("#app") || hash === "#capture-inbox" || hash === "#overview") {
+      return "app";
+    }
+  }
+  return "landing";
+  });
   const [initialState] = useState(loadState);
   const [data, setData] = useState(initialState);
   const [page, setPage] = useState("overview");
@@ -135,7 +144,31 @@ function App() {
   const activeTasks = data.tasks.filter((task) => task.status === "open");
   const filteredTasks = activeTasks.filter((task) => !searchText || task.title.toLowerCase().includes(searchText.toLowerCase()) || courseFor(task, data)?.name.toLowerCase().includes(searchText.toLowerCase()));
 
-  useEffect(() => { saveState(data); }, [data]);
+  useEffect(() => {
+  function handleHash() {
+    const hash = window.location.hash;
+    if (hash.startsWith("#app") || hash === "#capture-inbox" || hash === "#overview") {
+      setView("app");
+    } else if (hash === "#landing" || hash === "") {
+      setView("landing");
+    }
+  }
+  window.addEventListener("hashchange", handleHash);
+  return () => window.removeEventListener("hashchange", handleHash);
+}, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      setData(loadState(user?.id));
+    }
+  }, [user?.id, isLoaded]);
+  
+  useEffect(() => {
+    if (isLoaded) {
+      saveState(data, user?.id);
+    }
+  }, [data, user?.id, isLoaded]);
+
   useEffect(() => {
     function receiveExtensionCapture(event) {
       if (event.source !== window || event.origin !== window.location.origin || event.data?.source !== "crunchless-extension" || event.data?.type !== "capture") return;
@@ -167,6 +200,13 @@ function App() {
     const timer = window.setTimeout(() => setToast(""), 2800);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn && view === "landing") {
+      setView("app");
+      window.location.hash = "#app";
+    }
+  }, [isLoaded, isSignedIn, view]);
 
   const commit = (next, message) => {
     setData((current) => typeof next === "function" ? next(current) : next);
@@ -364,10 +404,18 @@ function App() {
     return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
   }, [weekOffset]);
 
+  if (!isLoaded) {
+    return (
+      <div style={{ display: "grid", placeItems: "center", minHeight: "100vh", background: "var(--canvas)" }}>
+        <div className="brand-mark"><span /><span /><span /></div>
+      </div>
+    );
+  }
+
   if (view === "landing") {
     return <LandingPage onOpenApp={() => {
-      setView("app");
-      window.location.hash = "#app";
+      setView("overview");
+      window.location.hash = "#overview";
     }} />;
   }
 
@@ -422,14 +470,14 @@ function App() {
             <button className="button button-primary top-import" onClick={() => setModal({ type: "import" })}><Upload size={16} /> Import</button>
             <Show when="signed-out">
               <SignInButton mode="modal">
-                <button className="button button-secondary top-auth-btn" type="button">Sign in</button>
+                <button className="button button-secondary" type="button">Sign in</button>
               </SignInButton>
               <SignUpButton mode="modal">
-                <button className="button button-primary top-auth-btn" type="button">Sign up</button>
+                <button className="button button-primary" type="button">Sign up</button>
               </SignUpButton>
             </Show>
             <Show when="signed-in">
-              <UserButton />
+              <UserButton afterSignOutUrl="/"/>
             </Show>
             <button className="icon-button mobile-menu-button" aria-label="More navigation" onClick={() => setMenuOpen(!menuOpen)}><Menu size={19} /></button>
           </div>

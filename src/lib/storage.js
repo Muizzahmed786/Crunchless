@@ -31,9 +31,15 @@ function seedState() {
   };
 }
 
-export function loadState() {
+export function getStorageKey(userId) {
+  return userId ? `crunchless-project-v24_${userId}` : "crunchless-project-v24";
+}
+
+export function loadState(userId) {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey(userId);
+    let saved = localStorage.getItem(key);
+    if (!saved && userId) saved = localStorage.getItem("crunchless-project-v24");
     if (saved) {
       const defaults = seedState();
       const parsed = JSON.parse(saved);
@@ -100,8 +106,9 @@ export function loadState() {
   return seedState();
 }
 
-export function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+export function saveState(data, userId) {
+  const key = getStorageKey(userId);
+  localStorage.setItem(key, JSON.stringify(data));
 }
 
 export function localDateTimeToISO(dateString, timeString = "23:59", timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC") {
