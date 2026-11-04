@@ -1,3 +1,4 @@
+import { Show, SignInButton, SignUpButton, UserButton, useUser } from "@clerk/react";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight, ArrowUpRight, Bell, BookOpen, CalendarCheck2, CalendarDays,
@@ -118,23 +119,7 @@ function previewLoads(data, plan) {
 }
 
 function App() {
-  const [view, setView] = useState(() => {
-    if (typeof window !== "undefined") {
-      if (window.location.hash.startsWith("#app") || window.location.hash === "#capture-inbox") return "app";
-      if (window.location.hash === "#landing") return "landing";
-    }
-    return "landing";
-  });
-
-  useEffect(() => {
-    function handleHash() {
-      if (window.location.hash.startsWith("#app") || window.location.hash === "#capture-inbox") setView("app");
-      else if (window.location.hash === "#landing" || window.location.hash === "") setView("landing");
-    }
-    window.addEventListener("hashchange", handleHash);
-    return () => window.removeEventListener("hashchange", handleHash);
-  }, []);
-
+  const { user, isSignedIn } = useUser();
   const [initialState] = useState(loadState);
   const [data, setData] = useState(initialState);
   const [page, setPage] = useState("overview");
@@ -406,8 +391,17 @@ function App() {
           </button>
           <div className="privacy-note"><ShieldCheck size={17} /><span>Your deadlines stay yours.</span></div>
           <button className="profile-switch" onClick={() => setPage("settings")}>
-            <div className="avatar">{data.profile.name.slice(0, 1) || "?"}</div>
-            <div className="profile-copy"><strong>{data.profile.name || "Your workspace"}</strong><span>Personal workspace</span></div>
+            <div className="avatar">
+              {isSignedIn && user?.imageUrl ? (
+                <img src={user.imageUrl} alt={user.fullName || "User"} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                (isSignedIn ? (user?.firstName?.slice(0, 1) || user?.emailAddresses?.[0]?.emailAddress?.slice(0, 1)) : data.profile.name.slice(0, 1)) || "?"
+              )}
+            </div>
+            <div className="profile-copy">
+              <strong>{isSignedIn ? (user?.fullName || user?.primaryEmailAddress?.emailAddress || "Your account") : (data.profile.name || "Your workspace")}</strong>
+              <span>{isSignedIn ? "Clerk Account" : "Personal workspace"}</span>
+            </div>
             <MoreHorizontal size={18} />
           </button>
         </div>
@@ -426,6 +420,17 @@ function App() {
             <button className="icon-button notification-button" aria-label="Reminder status" title="Reminders are not active in this build" onClick={() => setToast("Reminders are not active in this local build.")}><Bell size={18} /></button>
             <button className="button button-secondary top-add" onClick={() => setModal({ type: "capture" })}><Plus size={17} /> Quick capture</button>
             <button className="button button-primary top-import" onClick={() => setModal({ type: "import" })}><Upload size={16} /> Import</button>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="button button-secondary top-auth-btn" type="button">Sign in</button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="button button-primary top-auth-btn" type="button">Sign up</button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
             <button className="icon-button mobile-menu-button" aria-label="More navigation" onClick={() => setMenuOpen(!menuOpen)}><Menu size={19} /></button>
           </div>
         </header>
