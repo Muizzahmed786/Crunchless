@@ -13,6 +13,7 @@ import {
   addDays, dateKeyInZone, dateKeyToDate, formatDay, getMonday, loadState, localDay,
   localDateTimeToISO, randomId, saveState, timeInZone,
 } from "./lib/storage.js";
+import LandingPage from "./LandingPage.jsx";
 
 const NAV = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -117,6 +118,23 @@ function previewLoads(data, plan) {
 }
 
 function App() {
+  const [view, setView] = useState(() => {
+    if (typeof window !== "undefined") {
+      if (window.location.hash.startsWith("#app") || window.location.hash === "#capture-inbox") return "app";
+      if (window.location.hash === "#landing") return "landing";
+    }
+    return "landing";
+  });
+
+  useEffect(() => {
+    function handleHash() {
+      if (window.location.hash.startsWith("#app") || window.location.hash === "#capture-inbox") setView("app");
+      else if (window.location.hash === "#landing" || window.location.hash === "") setView("landing");
+    }
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   const [initialState] = useState(loadState);
   const [data, setData] = useState(initialState);
   const [page, setPage] = useState("overview");
@@ -143,6 +161,7 @@ function App() {
       try { const parsed = new URL(capture.url); if (["https:", "http:"].includes(parsed.protocol)) safeUrl = parsed.href; } catch { /* ignore an invalid source URL */ }
       const item = { id: `extension-${capture.id}`, title: String(capture.title || text).trim().slice(0, 180), notes: capture.pageTitle ? `From: ${String(capture.pageTitle).slice(0, 200)}\n\n${text}` : text, url: safeUrl, source: "browser_extension", capturedAt: capture.capturedAt || new Date().toISOString() };
       setData((current) => current.inbox.some((entry) => entry.id === item.id) ? current : { ...current, inbox: [item, ...current.inbox] });
+      setView("app");
       setPage("inbox");
       setToast("Selected text saved to your inbox. Review it when you’re ready.");
       window.postMessage({ source: "crunchless-app", type: "capture-ack", id: capture.id }, window.location.origin);
@@ -360,6 +379,13 @@ function App() {
     return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
   }, [weekOffset]);
 
+  if (view === "landing") {
+    return <LandingPage onOpenApp={() => {
+      setView("app");
+      window.location.hash = "#app";
+    }} />;
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar glass-panel" aria-label="Main navigation">
@@ -374,6 +400,10 @@ function App() {
           {MORE_NAV.map((item) => <NavButton key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)} />)}
         </nav>
         <div className="sidebar-bottom">
+          <button className="nav-button" style={{ minHeight: 36, marginBottom: 8 }} onClick={() => { setView("landing"); window.location.hash = "#landing"; }}>
+            <Sparkles size={17} />
+            <span>Product Tour</span>
+          </button>
           <div className="privacy-note"><ShieldCheck size={17} /><span>Your deadlines stay yours.</span></div>
           <button className="profile-switch" onClick={() => setPage("settings")}>
             <div className="avatar">{data.profile.name.slice(0, 1) || "?"}</div>
@@ -388,6 +418,9 @@ function App() {
           <div className="mobile-brand"><div className="brand-mark small"><span /><span /><span /></div><strong>Crunchless</strong></div>
           <div className="topbar-context"><span className="breadcrumb">Workspace</span><ChevronRight size={14} /><span>{currentPage.label}</span></div>
           <div className="topbar-actions">
+            <button className="button button-quiet" onClick={() => { setView("landing"); window.location.hash = "#landing"; }} title="View product landing page">
+              <Sparkles size={15} /> Product Tour
+            </button>
             {searchOpen ? <div className="search-box"><Search size={17} /><input autoFocus aria-label="Search tasks" placeholder="Search tasks or courses" value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => event.key === "Escape" && (setSearchOpen(false), setSearchText(""))} /><button className="icon-button compact" aria-label="Close search" onClick={() => { setSearchOpen(false); setSearchText(""); }}><X size={15} /></button></div> : <button className="icon-button search-toggle" aria-label="Search" onClick={() => setSearchOpen(true)}><Search size={18} /></button>}
             {data.workSessions.some((session) => session.source === "timer" && !session.endedAt && !session.voidedAt) && <button className="button timer-running" onClick={() => stopTimer(data.workSessions.find((session) => session.source === "timer" && !session.endedAt && !session.voidedAt))}><Timer size={15} /> Stop timer</button>}
             <button className="icon-button notification-button" aria-label="Reminder status" title="Reminders are not active in this build" onClick={() => setToast("Reminders are not active in this local build.")}><Bell size={18} /></button>
@@ -625,8 +658,8 @@ function InboxPage({ data, setModal, captureInbox, deleteInboxItem }) {
   return <>
     <PageIntro eyebrow="Capture now, sort later" title="Your inbox" subtitle="Save a thought before you know its date, course, or effort. Plan it when you’re ready." actions={<button className="button button-secondary" onClick={() => setModal({ type: "task" })}><Plus size={16} /> Add planned task</button>} />
     <form className="quick-capture-form card" onSubmit={submit}>
-      <label className="field-label">What do you need to remember?<input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} maxLength="180" placeholder="e.g. Fill out the internship form" /></label>
-      <label className="field-label">Extra detail <span className="optional-tag">Optional</span><textarea rows="2" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add a link, context, or a note for later." /></label>
+      <label className="field-label"><span className="field-label-text"><span>What do you need to remember?</span></span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} maxLength="180" placeholder="e.g. Fill out the internship form" /></label>
+      <label className="field-label"><span className="field-label-text"><span>Extra detail</span> <span className="optional-tag">Optional</span></span><input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add a link, context, or a note for later." /></label>
       <button className="button button-primary" type="submit" disabled={!title.trim()}><InboxIcon size={16} /> Save to inbox</button>
     </form>
     <section className="inbox-list" aria-label="Captured items">
@@ -680,7 +713,7 @@ function ProjectDialog({ onSave, onCancel }) {
   const [name, setName] = useState(""); const [targetDate, setTargetDate] = useState(""); const [notes, setNotes] = useState("");
   return <form className="modal-content" onSubmit={(event) => { event.preventDefault(); if (!name.trim()) return; onSave({ name: name.trim(), targetDate: targetDate || null, notes: notes.trim() }); }}>
     <ModalHeader eyebrow="Personal project" title="Give your goal a home" description="You can add milestones and due dates after creating it." onClose={onCancel} />
-    <div className="modal-body"><label className="field-label full-field">Project name<input autoFocus maxLength="120" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Build my portfolio site" required /></label><label className="field-label full-field">Target date <span className="optional-tag">Optional</span><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label><label className="field-label full-field">What is this for? <span className="optional-tag">Optional</span><textarea rows="3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add a short note for future you." /></label></div>
+    <div className="modal-body"><label className="field-label full-field"><span className="field-label-text"><span>Project name</span></span><input autoFocus maxLength="120" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Build my portfolio site" required /></label><label className="field-label full-field"><span className="field-label-text"><span>Target date</span> <span className="optional-tag">Optional</span></span><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label><label className="field-label full-field"><span className="field-label-text"><span>What is this for?</span> <span className="optional-tag">Optional</span></span><textarea rows="3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add a short note for future you." /></label></div>
     <div className="modal-footer"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" type="submit"><Check size={15} /> Create project</button></div>
   </form>;
 }
@@ -759,7 +792,7 @@ function SetupDialog({ data, onSave, onSkip }) {
   return <form className="modal-content setup-modal" onSubmit={submit}>
     <ModalHeader eyebrow="A quick setup" title="Make room for your week" description="This is only a starting point. Change it anytime, and skip if you’d rather set it up later." onClose={onSkip} />
     <div className="modal-body">
-      <label className="field-label">Name <span className="optional-tag">Optional</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="What should we call you?" /></label>
+      <label className="field-label"><span className="field-label-text"><span>Name</span> <span className="optional-tag">Optional</span></span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="What should we call you?" /></label>
       <label className="field-label">Timezone<select value={timezone} onChange={(event) => setTimezone(event.target.value)}>{[Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", "UTC", "Asia/Kolkata", "America/New_York", "Europe/London", "Australia/Sydney"].filter((item, index, list) => list.indexOf(item) === index).map((zone) => <option key={zone}>{zone}</option>)}</select></label>
       <div className="setup-capacity"><div><strong>Suggested study time</strong><span>{hours(total)} / week · edit to fit your real routine</span></div><div className="availability-grid">{WEEK.map((day, index) => <label className="availability-day" key={day}><span>{WEEK_LABELS[index]}</span><div className="number-field"><input aria-label={`${WEEK_LABELS[index]} suggested study hours`} type="number" min="0" max="24" step="0.5" value={availability[day]} onChange={(event) => setAvailability((current) => ({ ...current, [day]: Number(event.target.value) }))} /><small>h</small></div></label>)}</div></div>
       <div className="preview-banner"><InfoDot /> These hours are suggestions you control. Your plan changes when you save them.</div>
@@ -773,7 +806,7 @@ function QuickCaptureDialog({ onSave, onCancel }) {
   const [notes, setNotes] = useState("");
   return <form className="modal-content" onSubmit={(event) => { event.preventDefault(); onSave(title, notes); }}>
     <ModalHeader eyebrow="Quick capture" title="Save it for later" description="No course, due date, or estimate needed yet." onClose={onCancel} />
-    <div className="modal-body"><label className="field-label full-field">What do you need to remember?<input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} maxLength="180" placeholder="e.g. Fill out the internship form" required /></label><label className="field-label full-field">Extra detail <span className="optional-tag">Optional</span><textarea rows="3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add a link or context for later." /></label></div>
+    <div className="modal-body"><label className="field-label full-field"><span className="field-label-text"><span>What do you need to remember?</span></span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} maxLength="180" placeholder="e.g. Fill out the internship form" required /></label><label className="field-label full-field"><span className="field-label-text"><span>Extra detail</span> <span className="optional-tag">Optional</span></span><textarea rows="3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add a link or context for later." /></label></div>
     <div className="modal-footer"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" type="submit"><InboxIcon size={15} /> Save to inbox</button></div>
   </form>;
 }
@@ -790,7 +823,7 @@ function TaskForm({ data, task, initialDraft, onSave, onCancel }) {
   const likely = Number(form.likelyHours) || 0;
   const priority = form.priority || (form.type === "exam" || Number(form.gradeWeight) >= 15 ? "high" : "normal");
   function submit(event) { event.preventDefault(); if (!form.title.trim() || !form.dueDate || !Number.isFinite(likely) || likely <= 0) return; const taskData = { ...task, id: task?.id, title: form.title.trim(), courseId: form.courseId || null, projectId: form.projectId || null, type: form.type, dueAt: localDateTimeToISO(form.dueDate, form.dueTime || "23:59", data.profile.timezone), optimisticHours: Number((likely * 0.7).toFixed(1)), likelyHours: likely, pessimisticHours: Number((likely * 1.6).toFixed(1)), priority, status: task?.status || "open", gradeWeight: form.gradeWeight === "" ? null : Number(form.gradeWeight), notes: form.notes, source: task?.source || "manual", dependsOn: form.dependsOn || null }; onSave(taskData); }
-  return <form className="modal-content task-form" onSubmit={submit}><ModalHeader eyebrow={task ? "Task details" : "A little more room"} title={task ? "Edit task" : "Add a task"} onClose={onCancel} /><div className="modal-body"><label className="field-label full-field">Title<input autoFocus value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Networks lab 5" maxLength="120" required /></label><div className="form-two-col"><label className="field-label">Course<select value={form.courseId || ""} onChange={(event) => setForm({ ...form, courseId: event.target.value })}><option value="">Personal / no course</option>{data.courses.map((course) => <option value={course.id} key={course.id}>{course.name}</option>)}</select></label><label className="field-label">Type<select value={form.type} onChange={(event) => { const type = event.target.value; setForm({ ...form, type, priority: type === "exam" || Number(form.gradeWeight) >= 15 ? "high" : form.priority }); }}>{TYPES.map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}</select></label></div>{data.projects.length > 0 && <label className="field-label full-field">Project <span className="optional-tag">Optional</span><select value={form.projectId || ""} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">No project</option>{data.projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>}<div className="form-two-col"><label className="field-label">Due date<input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} required /></label><label className="field-label">Due time<input type="time" value={form.dueTime} onChange={(event) => setForm({ ...form, dueTime: event.target.value })} required /></label></div><div className="form-two-col"><label className="field-label">Likely effort<input type="number" min="0.5" max="9999" step="0.5" value={form.likelyHours} onChange={(event) => setForm({ ...form, likelyHours: event.target.value })} required /><small>Estimate range: {hours(likely * 0.7)}–{hours(likely * 1.6)}</small></label><label className="field-label">Grade weight<input type="number" min="0" max="100" step="0.5" value={form.gradeWeight ?? ""} onChange={(event) => setForm({ ...form, gradeWeight: event.target.value, priority: Number(event.target.value) >= 15 ? "high" : form.priority })} placeholder="Optional %" /></label></div><div className="form-two-col"><label className="field-label">Priority<select value={priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select><small>Default is high for exams or 15%+ grade weight. You can change it.</small></label><label className="field-label">Depends on<select value={form.dependsOn || ""} onChange={(event) => setForm({ ...form, dependsOn: event.target.value })}><option value="">No dependency</option>{data.tasks.filter((item) => item.id !== task?.id && item.status === "open").map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label></div><label className="field-label full-field">Notes<textarea rows="3" value={form.notes || ""} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Add a useful detail, if you like." /></label></div><div className="modal-footer"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" type="submit"><Check size={15} />{task ? "Save changes" : "Add to my plan"}</button></div></form>;
+  return <form className="modal-content task-form" onSubmit={submit}><ModalHeader eyebrow={task ? "Task details" : "A little more room"} title={task ? "Edit task" : "Add a task"} onClose={onCancel} /><div className="modal-body"><label className="field-label full-field">Title<input autoFocus value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Networks lab 5" maxLength="120" required /></label><div className="form-two-col"><label className="field-label">Course<select value={form.courseId || ""} onChange={(event) => setForm({ ...form, courseId: event.target.value })}><option value="">Personal / no course</option>{data.courses.map((course) => <option value={course.id} key={course.id}>{course.name}</option>)}</select></label><label className="field-label">Type<select value={form.type} onChange={(event) => { const type = event.target.value; setForm({ ...form, type, priority: type === "exam" || Number(form.gradeWeight) >= 15 ? "high" : form.priority }); }}>{TYPES.map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}</select></label></div>{data.projects.length > 0 && <label className="field-label full-field"><span className="field-label-text"><span>Project</span> <span className="optional-tag">Optional</span></span><select value={form.projectId || ""} onChange={(event) => setForm({ ...form, projectId: event.target.value })}><option value="">No project</option>{data.projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>}<div className="form-two-col"><label className="field-label">Due date<input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} required /></label><label className="field-label">Due time<input type="time" value={form.dueTime} onChange={(event) => setForm({ ...form, dueTime: event.target.value })} required /></label></div><div className="form-two-col"><label className="field-label">Likely effort<input type="number" min="0.5" max="9999" step="0.5" value={form.likelyHours} onChange={(event) => setForm({ ...form, likelyHours: event.target.value })} required /><small>Estimate range: {hours(likely * 0.7)}–{hours(likely * 1.6)}</small></label><label className="field-label">Grade weight<input type="number" min="0" max="100" step="0.5" value={form.gradeWeight ?? ""} onChange={(event) => setForm({ ...form, gradeWeight: event.target.value, priority: Number(event.target.value) >= 15 ? "high" : form.priority })} placeholder="Optional %" /></label></div><div className="form-two-col"><label className="field-label">Priority<select value={priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select><small>Default is high for exams or 15%+ grade weight. You can change it.</small></label><label className="field-label">Depends on<select value={form.dependsOn || ""} onChange={(event) => setForm({ ...form, dependsOn: event.target.value })}><option value="">No dependency</option>{data.tasks.filter((item) => item.id !== task?.id && item.status === "open").map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label></div><label className="field-label full-field">Notes<textarea rows="3" value={form.notes || ""} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Add a useful detail, if you like." /></label></div><div className="modal-footer"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" type="submit"><Check size={15} />{task ? "Save changes" : "Add to my plan"}</button></div></form>;
 }
 
 function ModalHeader({ eyebrow, title, onClose, description }) { return <div className="modal-header"><div><div className="card-kicker">{eyebrow}</div><h2>{title}</h2>{description && <p>{description}</p>}</div><button className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={18} /></button></div>; }
@@ -835,7 +868,7 @@ function ArchiveIcon() { return <span className="archive-glyph">⌑</span>; }
 function CompleteDialog({ task, sessions, onSave, onCancel }) {
   const logged = sessions.filter((item) => !item.voidedAt).reduce((sum, item) => sum + Number(item.minutes || 0) / 60, 0);
   const [total, setTotal] = useState(logged ? String(logged.toFixed(1)) : "");
-  return <form className="modal-content" onSubmit={(event) => { event.preventDefault(); onSave(total); }}><ModalHeader eyebrow="Close the loop" title="Mark as complete" onClose={onCancel} description={task.title} /><div className="modal-body"><div className="completion-note"><CheckCircle2 size={20} /><span>Nice work. Your remaining plan will be cleared and the schedule refreshed.</span></div><label className="field-label full-field">How long did it take? <span className="optional-tag">Optional</span><div className="input-suffix"><input autoFocus type="number" min="0" step="0.1" value={total} onChange={(event) => setTotal(event.target.value)} placeholder="Skip if you’re not sure" /><span>hours total</span></div><small>{logged > 0 ? `${hours(logged)} already logged. Enter a total or leave the field blank.` : "This helps improve future effort estimates."}</small></label></div><div className="modal-footer"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" type="submit"><Check size={15} /> Mark complete</button></div></form>;
+  return <form className="modal-content" onSubmit={(event) => { event.preventDefault(); onSave(total); }}><ModalHeader eyebrow="Close the loop" title="Mark as complete" onClose={onCancel} description={task.title} /><div className="modal-body"><div className="completion-note"><CheckCircle2 size={20} /><span>Nice work. Your remaining plan will be cleared and the schedule refreshed.</span></div><label className="field-label full-field"><span className="field-label-text"><span>How long did it take?</span> <span className="optional-tag">Optional</span></span><div className="input-suffix"><input autoFocus type="number" min="0" step="0.1" value={total} onChange={(event) => setTotal(event.target.value)} placeholder="Skip if you’re not sure" /><span>hours total</span></div><small>{logged > 0 ? `${hours(logged)} already logged. Enter a total or leave the field blank.` : "This helps improve future effort estimates."}</small></label></div><div className="modal-footer"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" type="submit"><Check size={15} /> Mark complete</button></div></form>;
 }
 
 function LogDialog({ task, onSave, onCancel }) {
