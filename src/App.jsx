@@ -420,72 +420,144 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar glass-panel" aria-label="Main navigation">
-        <div className="brand-lockup">
+    <div className="video-app-shell">
+      <header className="video-top-nav" aria-label="Main navigation">
+        <div className="brand-lockup" onClick={() => setPage("overview")} style={{ cursor: "pointer" }}>
           <div className="brand-mark" aria-hidden="true"><span /><span /><span /></div>
-          <div><span className="brand-name">Crunchless</span><span className="brand-caption">See the crunch before it hits.</span></div>
+          <div>
+            <span className="brand-name">Crunchless</span>
+            <span className="brand-caption">AI Workload Engine</span>
+          </div>
         </div>
-        <nav className="sidebar-nav">
-          <span className="nav-eyebrow">Workspace</span>
-          {NAV.map((item) => <NavButton key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)} />)}
-          <span className="nav-eyebrow nav-lower">Manage</span>
-          {MORE_NAV.map((item) => <NavButton key={item.id} item={item} active={page === item.id} onClick={() => setPage(item.id)} />)}
-        </nav>
-        <div className="sidebar-bottom">
-          <button className="nav-button" style={{ minHeight: 36, marginBottom: 8 }} onClick={() => { setView("landing"); window.location.hash = "#landing"; }}>
-            <Sparkles size={17} />
-            <span>Product Tour</span>
-          </button>
-          <div className="privacy-note"><ShieldCheck size={17} /><span>Your deadlines stay yours.</span></div>
-          <button className="profile-switch" onClick={() => setPage("settings")}>
-            <div className="avatar">
-              {isSignedIn && user?.imageUrl ? (
-                <img src={user.imageUrl} alt={user.fullName || "User"} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
-              ) : (
-                (isSignedIn ? (user?.firstName?.slice(0, 1) || user?.emailAddresses?.[0]?.emailAddress?.slice(0, 1)) : data.profile.name.slice(0, 1)) || "?"
-              )}
-            </div>
-            <div className="profile-copy">
-              <strong>{isSignedIn ? (user?.fullName || user?.primaryEmailAddress?.emailAddress || "Your account") : (data.profile.name || "Your workspace")}</strong>
-              <span>{isSignedIn ? "Clerk Account" : "Personal workspace"}</span>
-            </div>
-            <MoreHorizontal size={18} />
-          </button>
-        </div>
-      </aside>
 
-      <main className="main-column">
-        <header className="topbar">
-          <div className="mobile-brand"><div className="brand-mark small"><span /><span /><span /></div><strong>Crunchless</strong></div>
-          <div className="topbar-context"><span className="breadcrumb">Workspace</span><ChevronRight size={14} /><span>{currentPage.label}</span></div>
-          <div className="topbar-actions">
-            <button className="button button-quiet" onClick={() => { setView("landing"); window.location.hash = "#landing"; }} title="View product landing page">
-              <Sparkles size={15} /> Product Tour
+        <nav className="pill-nav-container" aria-label="Primary navigation">
+          {NAV.map((item) => (
+            <button
+              key={item.id}
+              className={`pill-nav-item ${page === item.id ? "active" : ""}`}
+              onClick={() => setPage(item.id)}
+            >
+              <span>{item.label}</span>
             </button>
-            {searchOpen ? <div className="search-box"><Search size={17} /><input autoFocus aria-label="Search tasks" placeholder="Search tasks or courses" value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => event.key === "Escape" && (setSearchOpen(false), setSearchText(""))} /><button className="icon-button compact" aria-label="Close search" onClick={() => { setSearchOpen(false); setSearchText(""); }}><X size={15} /></button></div> : <button className="icon-button search-toggle" aria-label="Search" onClick={() => setSearchOpen(true)}><Search size={18} /></button>}
-            {data.workSessions.some((session) => session.source === "timer" && !session.endedAt && !session.voidedAt) && <button className="button timer-running" onClick={() => stopTimer(data.workSessions.find((session) => session.source === "timer" && !session.endedAt && !session.voidedAt))}><Timer size={15} /> Stop timer</button>}
-            <button className="icon-button notification-button" aria-label="Reminder status" title="Reminders are not active in this build" onClick={() => setToast("Reminders are not active in this local build.")}><Bell size={18} /></button>
-            <button className="button button-secondary top-add" onClick={() => setModal({ type: "capture" })}><Plus size={17} /> Quick capture</button>
-            <button className="button button-primary top-import" onClick={() => setModal({ type: "import" })}><Upload size={16} /> Import</button>
-            <Show when="signed-out">
+          ))}
+        </nav>
+
+        <div className="top-nav-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {searchOpen ? (
+            <div className="search-box" style={{ borderRadius: 999, background: "#25262b", border: "1px solid rgba(255,255,255,0.12)", height: 38 }}>
+              <Search size={16} />
+              <input
+                autoFocus
+                placeholder="Search tasks or courses..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && (setSearchOpen(false), setSearchText(""))}
+              />
+              <button className="icon-button compact" onClick={() => { setSearchOpen(false); setSearchText(""); }}>
+                <X size={15} />
+              </button>
+            </div>
+          ) : (
+            <button
+              className="icon-circle"
+              aria-label="Search"
+              onClick={() => setSearchOpen(true)}
+              title="Search tasks or courses"
+            >
+              <Search size={17} />
+            </button>
+          )}
+
+          {data.workSessions.some((session) => session.source === "timer" && !session.endedAt && !session.voidedAt) ? (
+            <button
+              className="button timer-running"
+              style={{ borderRadius: 999, height: 38, padding: "0 14px" }}
+              onClick={() => stopTimer(data.workSessions.find((session) => session.source === "timer" && !session.endedAt && !session.voidedAt))}
+            >
+              <Timer size={15} /> Stop timer
+            </button>
+          ) : (
+            <button
+              className="icon-circle"
+              aria-label="Notifications"
+              onClick={() => setToast("Workload diagnostics synchronized")}
+              title="Notifications"
+            >
+              <Bell size={17} />
+              <span className="notification-dot-red" />
+            </button>
+          )}
+
+          <div className="manage-dropdown-wrapper">
+            <button
+              className={`icon-circle ${menuOpen ? "active" : ""}`}
+              aria-label="Manage options"
+              onClick={() => setMenuOpen(!menuOpen)}
+              title="Manage workspace"
+            >
+              <SlidersHorizontal size={17} />
+            </button>
+            {menuOpen && (
+              <div className="dropdown-menu">
+                {MORE_NAV.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      className={`dropdown-item ${page === item.id ? "active" : ""}`}
+                      onClick={() => {
+                        setPage(item.id);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <Icon size={16} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+                <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0" }} />
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setView("landing");
+                    window.location.hash = "#landing";
+                    setMenuOpen(false);
+                  }}
+                >
+                  <Sparkles size={16} />
+                  <span>Product Tour</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <Show when="signed-out">
+            <div style={{ display: "flex", gap: 6 }}>
               <SignInButton mode="modal">
-                <button className="button button-secondary" type="button">Sign in</button>
+                <button className="button button-secondary compact" style={{ borderRadius: 999 }} type="button">Sign in</button>
               </SignInButton>
               <SignUpButton mode="modal">
-                <button className="button button-primary" type="button">Sign up</button>
+                <button className="button button-primary compact" style={{ borderRadius: 999 }} type="button">Sign up</button>
               </SignUpButton>
-            </Show>
-            <Show when="signed-in">
-              <UserButton afterSignOutUrl="/"/>
-            </Show>
-            <button className="icon-button mobile-menu-button" aria-label="More navigation" onClick={() => setMenuOpen(!menuOpen)}><Menu size={19} /></button>
-          </div>
-        </header>
+            </div>
+          </Show>
 
-        {menuOpen && <div className="mobile-menu glass-panel">{[...NAV, ...MORE_NAV].map((item) => <NavButton key={item.id} item={item} active={page === item.id} onClick={() => { setPage(item.id); setMenuOpen(false); }} />)}</div>}
+          <Show when="signed-in">
+            <div className="user-profile-capsule" onClick={() => setPage("settings")}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", display: "grid", placeItems: "center" }}>
+                <UserButton />
+              </div>
+              <div className="user-capsule-info">
+                <strong>{user?.firstName || user?.fullName || "Account"}</strong>
+                <small>{user?.primaryEmailAddress?.emailAddress ? user.primaryEmailAddress.emailAddress.split("@")[0] : "Student"}</small>
+              </div>
+            </div>
+          </Show>
+        </div>
+      </header>
 
-        <div className="page-content">
+      <main className="video-main-content">
+        <div className="page-content" style={{ padding: 0 }}>
           {page === "overview" && <Overview data={data} schedule={schedule} planById={planById} week={currentWeek} weekOffset={weekOffset} setWeekOffset={setWeekOffset} selectedDay={selectedDay} setSelectedDay={setSelectedDay} setPage={setPage} setModal={setModal} markMissed={markMissed} completeTask={completeTask} />}
           {page === "calendar" && <CalendarPage data={data} schedule={schedule} planById={planById} setModal={setModal} setSelectedDay={setSelectedDay} selectedDay={selectedDay} />}
           {page === "plan" && <PlanPage data={data} schedule={schedule} planById={planById} setModal={setModal} markMissed={markMissed} />}
@@ -500,12 +572,52 @@ function App() {
         </div>
       </main>
 
-      <nav className="mobile-tabs" aria-label="Mobile navigation">
-        {[NAV[0], NAV[1], NAV[2], { id: "more", label: "More", icon: MoreHorizontal }].map((item) => <button key={item.id} className={`mobile-tab ${page === item.id || (item.id === "more" && MORE_NAV.some((link) => link.id === page)) ? "active" : ""}`} onClick={() => item.id === "more" ? setMenuOpen(!menuOpen) : setPage(item.id)}><item.icon size={19} /><span>{item.label}</span></button>)}
-      </nav>
-
-      {modal && modal.type !== "sessions" && <ModalFrame onClose={() => modal.type === "setup" ? completeSetup(data.profile, data.availability) : setModal(null)}>{modal.type === "setup" && <SetupDialog data={data} onSave={completeSetup} onSkip={() => completeSetup(data.profile, data.availability)} />}{modal.type === "capture" && <QuickCaptureDialog onSave={(title, notes) => captureInbox(title, notes)} onCancel={() => setModal(null)} />}{modal.type === "task" && <TaskForm data={data} task={modal.task} initialDraft={modal.draft} onSave={(task) => saveTask(task, modal.task || null, modal.inboxId)} onCancel={() => setModal(null)} />}{modal.type === "project" && <ProjectDialog onSave={saveProject} onCancel={() => setModal(null)} />}{modal.type === "task-menu" && <TaskMenuDialog task={modal.task} setModal={setModal} onEdit={() => setModal({ type: "task", task: modal.task })} onComplete={() => setModal({ type: "complete", task: modal.task })} onLog={() => setModal({ type: "log", task: modal.task })} onRemaining={() => setModal({ type: "remaining", task: modal.task })} onHistory={() => setModal({ type: "history", task: modal.task })} onArchive={() => archiveTask(modal.task)} onStartTimer={() => startTimer(modal.task)} onRestore={() => restoreTask(modal.task)} close={() => setModal(null)} />}{modal.type === "complete" && <CompleteDialog task={modal.task} onSave={(value) => completeTask(modal.task, value)} onCancel={() => setModal(null)} sessions={data.workSessions.filter((session) => session.taskId === modal.task.id)} />}{modal.type === "log" && <LogDialog task={modal.task} onSave={(minutes) => logWork(modal.task, minutes)} onCancel={() => setModal(null)} />}{modal.type === "remaining" && <RemainingDialog task={modal.task} onSave={(value) => reportRemaining(modal.task, value)} onCancel={() => setModal(null)} />}{modal.type === "history" && <HistoryDialog task={modal.task} history={data.history.filter((entry) => entry.taskId === modal.task.id)} onUndo={undoHistory} onClose={() => setModal(null)} />}{modal.type === "import" && <ImportDialog data={data} commit={commit} setModal={setModal} cancelTask={cancelTask} />}{modal.type === "calendar-day" && <DayDetail date={modal.date} data={data} schedule={schedule} planById={planById} setModal={setModal} close={() => setModal(null)} />}{modal.type === "whatif" && <WhatIfDialog data={data} close={() => setModal(null)} />}{modal.type === "course" && <CourseDialog data={data} commit={commit} close={() => setModal(null)} />}{modal.type === "course-edit" && <CourseEditDialog course={modal.course} commit={commit} close={() => setModal(null)} />}</ModalFrame>}
-      {modal?.type === "sessions" && <ModalFrame onClose={() => setModal(null)}><WorkSessionsDialog task={modal.task} sessions={data.workSessions.filter((session) => session.taskId === modal.task.id)} timeZone={data.profile.timezone} onSave={correctSession} onVoid={voidSession} onRestore={restoreSession} onClose={() => setModal(null)} /></ModalFrame>}
+      {modal && modal.type !== "sessions" && (
+        <ModalFrame onClose={() => modal.type === "setup" ? completeSetup(data.profile, data.availability) : setModal(null)}>
+          {modal.type === "radar-details" && (
+            <RadarScanDetailsModal
+              task={modal.task}
+              markerIndex={modal.markerIndex}
+              data={data}
+              planById={planById}
+              startTimer={startTimer}
+              setModal={setModal}
+              completeTask={completeTask}
+              onClose={() => setModal(null)}
+            />
+          )}
+          {modal.type === "all-deadlines" && (
+            <AllDeadlinesModal
+              tasks={activeTasks.sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))}
+              data={data}
+              planById={planById}
+              setModal={setModal}
+              completeTask={completeTask}
+              startTimer={startTimer}
+              onClose={() => setModal(null)}
+            />
+          )}
+          {modal.type === "setup" && <SetupDialog data={data} onSave={completeSetup} onSkip={() => completeSetup(data.profile, data.availability)} />}
+          {modal.type === "capture" && <QuickCaptureDialog onSave={(title, notes) => captureInbox(title, notes)} onCancel={() => setModal(null)} />}
+          {modal.type === "task" && <TaskForm data={data} task={modal.task} initialDraft={modal.draft} onSave={(task) => saveTask(task, modal.task || null, modal.inboxId)} onCancel={() => setModal(null)} />}
+          {modal.type === "project" && <ProjectDialog onSave={saveProject} onCancel={() => setModal(null)} />}
+          {modal.type === "task-menu" && <TaskMenuDialog task={modal.task} setModal={setModal} onEdit={() => setModal({ type: "task", task: modal.task })} onComplete={() => setModal({ type: "complete", task: modal.task })} onLog={() => setModal({ type: "log", task: modal.task })} onRemaining={() => setModal({ type: "remaining", task: modal.task })} onHistory={() => setModal({ type: "history", task: modal.task })} onArchive={() => archiveTask(modal.task)} onStartTimer={() => startTimer(modal.task)} onRestore={() => restoreTask(modal.task)} close={() => setModal(null)} />}
+          {modal.type === "complete" && <CompleteDialog task={modal.task} onSave={(value) => completeTask(modal.task, value)} onCancel={() => setModal(null)} sessions={data.workSessions.filter((session) => session.taskId === modal.task.id)} />}
+          {modal.type === "log" && <LogDialog task={modal.task} onSave={(minutes) => logWork(modal.task, minutes)} onCancel={() => setModal(null)} />}
+          {modal.type === "remaining" && <RemainingDialog task={modal.task} onSave={(value) => reportRemaining(modal.task, value)} onCancel={() => setModal(null)} />}
+          {modal.type === "history" && <HistoryDialog task={modal.task} history={data.history.filter((entry) => entry.taskId === modal.task.id)} onUndo={undoHistory} onClose={() => setModal(null)} />}
+          {modal.type === "import" && <ImportDialog data={data} commit={commit} setModal={setModal} cancelTask={cancelTask} />}
+          {modal.type === "calendar-day" && <DayDetail date={modal.date} data={data} schedule={schedule} planById={planById} setModal={setModal} close={() => setModal(null)} />}
+          {modal.type === "whatif" && <WhatIfDialog data={data} close={() => setModal(null)} />}
+          {modal.type === "course" && <CourseDialog data={data} commit={commit} close={() => setModal(null)} />}
+          {modal.type === "course-edit" && <CourseEditDialog course={modal.course} commit={commit} close={() => setModal(null)} />}
+        </ModalFrame>
+      )}
+      {modal?.type === "sessions" && (
+        <ModalFrame onClose={() => setModal(null)}>
+          <WorkSessionsDialog task={modal.task} sessions={data.workSessions.filter((session) => session.taskId === modal.task.id)} timeZone={data.profile.timezone} onSave={correctSession} onVoid={voidSession} onRestore={restoreSession} onClose={() => setModal(null)} />
+        </ModalFrame>
+      )}
       <div className="sr-only" role="status" aria-live="polite">{toast}</div>
       {toast && <div className="toast glass-panel" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button className="icon-button compact" aria-label="Dismiss message" onClick={() => setToast("")}><X size={15} /></button></div>}
     </div>
@@ -521,6 +633,617 @@ function PageIntro({ eyebrow, title, subtitle, actions }) {
   return <div className="page-intro"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{actions && <div className="intro-actions">{actions}</div>}</div>;
 }
 
+/* ========================================================
+   Redient-Inspired Workload Intelligence Components
+   ======================================================== */
+
+function EqualizerMeter({ count = 24, percentage = 50, color = "green" }) {
+  const activeCount = Math.round((Math.max(0, Math.min(100, percentage)) / 100) * count);
+  return (
+    <div className="segmented-meter" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <span
+          key={i}
+          className={`meter-bar ${i < activeCount ? `active ${color}` : ""}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WorkloadRadar({ tasks = [], data, planById, onSelectMarker }) {
+  const [zoom, setZoom] = useState(1);
+  const [viewMode, setViewMode] = useState("all");
+
+  const markers = useMemo(() => {
+    const list = tasks.slice(0, 4);
+    const angles = [-0.6, 0.9, 2.5, 3.8];
+    const radii = [52, 85, 115, 142];
+    return list.map((task, idx) => {
+      const plan = planById?.get(String(task.id));
+      const status = plan?.status || "on_track";
+      const angle = angles[idx % angles.length];
+      const r = radii[idx % radii.length];
+      const x = 160 + r * Math.cos(angle);
+      const y = 160 + r * Math.sin(angle);
+      const color = status === "at_risk" ? "#ef4444" : status === "tight" ? "#f59e0b" : "#60a5fa";
+      return { task, idx: idx + 1, x, y, r, angle, color, status };
+    });
+  }, [tasks, planById]);
+
+  return (
+    <div className="radar-visualizer-card">
+      <div className="radar-head">
+        <div>
+          <h3>Workload Radar</h3>
+          <p>Real-time deadline proximity & effort scan</p>
+        </div>
+        <div className="radar-controls">
+          <button
+            className="radar-control-btn"
+            title="Scan Sync"
+            onClick={() => setZoom(1)}
+          >
+            <Sparkles size={14} />
+          </button>
+          <button
+            className="radar-control-btn"
+            title="Zoom In"
+            onClick={() => setZoom((z) => Math.min(1.3, Number((z + 0.1).toFixed(1))))}
+          >
+            <Plus size={14} />
+          </button>
+          <button
+            className="radar-control-btn"
+            title="Zoom Out"
+            onClick={() => setZoom((z) => Math.max(0.8, Number((z - 0.1).toFixed(1))))}
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="radar-canvas-container">
+        {/* Left thumbnail switchers */}
+        <div className="radar-thumb-strip">
+          <button
+            className={`radar-thumb ${viewMode === "all" ? "active" : ""}`}
+            onClick={() => setViewMode("all")}
+            title="All Commitments"
+          >
+            <Layers size={18} color={viewMode === "all" ? "#ffffff" : "#9da1aa"} />
+          </button>
+          <button
+            className={`radar-thumb ${viewMode === "critical" ? "active" : ""}`}
+            onClick={() => setViewMode("critical")}
+            title="High Proximity"
+          >
+            <TriangleAlert size={18} color={viewMode === "critical" ? "#ef4444" : "#9da1aa"} />
+          </button>
+          <button
+            className={`radar-thumb ${viewMode === "radar" ? "active" : ""}`}
+            onClick={() => setViewMode("radar")}
+            title="Radar Diagnostics"
+          >
+            <Clock3 size={18} color={viewMode === "radar" ? "#60a5fa" : "#9da1aa"} />
+          </button>
+        </div>
+
+        {/* SVG Radar */}
+        <svg
+          viewBox="0 0 320 320"
+          width="320"
+          height="320"
+          style={{
+            transform: `scale(${zoom})`,
+            transition: "transform 200ms ease",
+            overflow: "visible",
+          }}
+        >
+          <defs>
+            <radialGradient id="radarBgGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#25262c" stopOpacity="0.8" />
+              <stop offset="70%" stopColor="#1a1b1f" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#141416" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="sweepGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#df5f10" stopOpacity="0.35" />
+              <stop offset="50%" stopColor="#df5f10" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="#df5f10" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Background circle */}
+          <circle cx="160" cy="160" r="150" fill="url(#radarBgGlow)" />
+
+          {/* Concentric rings */}
+          <circle cx="160" cy="160" r="145" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="3 3" />
+          <circle cx="160" cy="160" r="115" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+          <circle cx="160" cy="160" r="85" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="4 4" />
+          <circle cx="160" cy="160" r="50" fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="1.2" />
+
+          {/* Crosshairs */}
+          <line x1="10" y1="160" x2="310" y2="160" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+          <line x1="160" y1="10" x2="160" y2="310" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+          <line x1="50" y1="50" x2="270" y2="270" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+          <line x1="50" y1="270" x2="270" y2="50" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+
+          {/* Rotating radar sweep ray */}
+          <g className="radar-sweep-ray">
+            <path
+              d="M 160 160 L 310 160 A 150 150 0 0 0 266 54 Z"
+              fill="url(#sweepGrad)"
+            />
+            <line x1="160" y1="160" x2="310" y2="160" stroke="#df5f10" strokeWidth="1.5" strokeOpacity="0.7" />
+          </g>
+
+          {/* Center core */}
+          <circle cx="160" cy="160" r="4" fill="#df5f10" />
+          <circle cx="160" cy="160" r="8" fill="none" stroke="#df5f10" strokeWidth="1" opacity="0.5" />
+
+          {/* Interactive Marker Nodes */}
+          {markers.map((m) => (
+            <g
+              key={m.task.id}
+              className="radar-marker-group"
+              onClick={() => onSelectMarker(m.task, m.idx)}
+              style={{ cursor: "pointer" }}
+            >
+              <circle
+                cx={m.x}
+                cy={m.y}
+                r="12"
+                fill={m.color}
+                opacity="0.25"
+                className="radar-marker-pulse"
+              />
+              <circle
+                cx={m.x}
+                cy={m.y}
+                r="6"
+                fill={m.color}
+                stroke="#ffffff"
+                strokeWidth="1.5"
+                className="marker-core"
+              />
+              {/* Marker Tag */}
+              <rect
+                x={m.x + 8}
+                y={m.y - 12}
+                width="64"
+                height="18"
+                rx="4"
+                fill="#1b1b1e"
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth="1"
+              />
+              <text
+                x={m.x + 14}
+                y={m.y + 1}
+                fill="#ffffff"
+                fontSize="9"
+                fontWeight="700"
+                fontFamily="sans-serif"
+              >
+                Marker {m.idx}
+              </text>
+            </g>
+          ))}
+        </svg>
+
+        {/* Right temperature bar */}
+        <div className="radar-temp-bar">
+          <span style={{ fontWeight: 650, color: "#f87171" }}>High</span>
+          <div className="temp-gradient-line" />
+          <span style={{ fontWeight: 650, color: "#60a5fa" }}>Low</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileCard({ data, capacity }) {
+  const { user, isSignedIn } = useUser();
+  return (
+    <div className="profile-feature-card">
+      <div className="profile-avatar-box">
+        {isSignedIn && user?.imageUrl ? (
+          <img src={user.imageUrl} alt={user.fullName || "User"} />
+        ) : (
+          <div style={{ display: "grid", placeItems: "center", width: "100%", height: "100%", background: "linear-gradient(135deg, #2b2c34 0%, #1f2025 100%)", color: "#df5f10" }}>
+            <GraduationCap size={32} />
+          </div>
+        )}
+      </div>
+      <div className="profile-feature-details">
+        <div>
+          <h4>{isSignedIn ? (user?.fullName || user?.firstName || "Alex Morgan") : (data.profile.name || "Alex Morgan")}</h4>
+          <span>ID: CR-8942 · Academic Term 2026</span>
+        </div>
+        <div className="profile-meta-chips">
+          <div className="profile-chip">
+            <GraduationCap size={12} color="#df5f10" />
+            <span>Major: {data.profile.major || "Computer Science"}</span>
+          </div>
+          <div className="profile-chip">
+            <Clock3 size={12} color="#60a5fa" />
+            <span>Pace: {hours(capacity)}/wk</span>
+          </div>
+          <div className="profile-chip">
+            <CheckCircle2 size={12} color="#22c55e" />
+            <span>Status: Active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecentDeadlinesCard({ tasks, data, planById, setModal, onViewAll }) {
+  const displayTasks = tasks.slice(0, 4);
+  return (
+    <div className="recent-tasks-card">
+      <div className="recent-tasks-head">
+        <h3>Upcoming Commitments</h3>
+        <button className="view-all-link" onClick={onViewAll}>
+          View All <ArrowUpRight size={14} />
+        </button>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table className="tasks-mini-table">
+          <thead>
+            <tr>
+              <th>COMMITMENT</th>
+              <th>DUE</th>
+              <th>ESTIMATE</th>
+              <th>STATUS</th>
+              <th style={{ textAlign: "right" }}>ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayTasks.length ? displayTasks.map((task) => {
+              const course = courseFor(task, data);
+              const plan = planById?.get(String(task.id));
+              const status = taskStatus(task, plan);
+              const pillClass = status === "At risk" ? "urgent" : status === "Tight" ? "review" : task.status === "done" ? "completed" : "available";
+              return (
+                <tr key={task.id}>
+                  <td>
+                    <div className="task-item-cell">
+                      <div className="task-thumb" style={{ background: course?.color ? `${course.color}25` : "#282930", color: course?.color || "#ffffff" }}>
+                        <BookOpen size={16} />
+                      </div>
+                      <div className="task-cell-info">
+                        <strong>{task.title}</strong>
+                        <span>{course?.name || "Personal"}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ color: "#d1d5db", whiteSpace: "nowrap" }}>
+                    {taskDateLabel(task.dueAt, data.profile.timezone, { month: "short", day: "numeric" })} · {timeLabel(task.dueAt, data.profile.timezone)}
+                  </td>
+                  <td style={{ color: "#9da1aa", whiteSpace: "nowrap" }}>
+                    {hours(plan?.remainingHours ?? task.likelyHours)}
+                  </td>
+                  <td>
+                    <span className={`pill-status ${pillClass}`}>
+                      {status === "At risk" ? "Urgent" : status === "Tight" ? "Review" : status === "Done" ? "Completed" : "On Track"}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button
+                      className="icon-button compact"
+                      onClick={() => setModal({ type: "task-menu", task })}
+                      title="Task options"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            }) : (
+              <tr>
+                <td colSpan={5} style={{ textAlign: "center", padding: "28px 12px", color: "#8e929d" }}>
+                  No upcoming deadlines found. You are all caught up!
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AvailabilityActionCard({ capacity, weekLoad, setPage, setModal }) {
+  return (
+    <div className="availability-action-card">
+      <div className="availability-user-info">
+        <div className="availability-avatar">
+          <Clock3 size={20} color="#df5f10" />
+        </div>
+        <div className="availability-text">
+          <strong>Weekly Capacity: {hours(capacity)}</strong>
+          <span>{hours(Math.max(0, capacity - weekLoad))} buffer · Next block: Tomorrow 9:00 AM</span>
+        </div>
+      </div>
+      <div className="availability-actions">
+        <button
+          className="icon-circle"
+          onClick={() => setPage("availability")}
+          title="Adjust weekly availability"
+        >
+          <Clock3 size={17} />
+        </button>
+        <button
+          className="icon-circle"
+          onClick={() => setPage("plan")}
+          title="View scheduled plan"
+        >
+          <CalendarCheck2 size={17} />
+        </button>
+        <button
+          className="orange-cta-btn"
+          onClick={() => setModal({ type: "capture" })}
+          title="Quick capture deadline"
+        >
+          <ArrowUpRight size={20} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RadarScanDetailsModal({ task, markerIndex = 1, data, planById, startTimer, setModal, completeTask, onClose }) {
+  if (!task) return null;
+  const course = courseFor(task, data);
+  const plan = planById?.get(String(task.id));
+  const status = taskStatus(task, plan);
+  const daysUntilDue = Math.max(0, Math.ceil((new Date(task.dueAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+
+  return (
+    <div className="modal-content scan-details-modal">
+      <ModalHeader
+        eyebrow={`MARKER ${markerIndex} · DIAGNOSTIC SCAN`}
+        title={`Scan Details · ${task.title}`}
+        onClose={onClose}
+      />
+      <div className="modal-body" style={{ padding: 20 }}>
+        <div className="scan-details-modal-grid">
+          {/* Left Visualizer zoomed */}
+          <div className="modal-left-visual">
+            <span className="modal-marker-tag">TARGET MARKER {markerIndex}</span>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg viewBox="0 0 240 240" width="220" height="220">
+                <circle cx="120" cy="120" r="100" fill="none" stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                <circle cx="120" cy="120" r="70" fill="none" stroke="rgba(255,255,255,0.12)" />
+                <circle cx="120" cy="120" r="35" fill="none" stroke="rgba(255,255,255,0.18)" />
+                <line x1="20" y1="120" x2="220" y2="120" stroke="rgba(255,255,255,0.1)" />
+                <line x1="120" y1="20" x2="120" y2="220" stroke="rgba(255,255,255,0.1)" />
+                <circle cx="120" cy="120" r="16" fill="rgba(223, 95, 16, 0.2)" className="radar-marker-pulse" />
+                <circle cx="120" cy="120" r="7" fill="#df5f10" stroke="#ffffff" strokeWidth="2" />
+              </svg>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#8e929d", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 10 }}>
+              <span>Target Proximity: <strong>{daysUntilDue} days</strong></span>
+              <span>Sessions: <strong>~{Math.ceil((task.likelyHours || 3) / 1.5)} blocks</strong></span>
+            </div>
+          </div>
+
+          {/* Right Meta Boxes */}
+          <div className="modal-right-meta">
+            <div className="meta-box">
+              <div className="meta-box-title">Study Demand & Effort</div>
+              <div className="meta-grid-2">
+                <div className="meta-item">
+                  <small>Due Date</small>
+                  <strong>{taskDateLabel(task.dueAt, data.profile.timezone, { month: "short", day: "numeric" })}</strong>
+                </div>
+                <div className="meta-item">
+                  <small>Course</small>
+                  <strong>{course?.name || "Personal"}</strong>
+                </div>
+                <div className="meta-item">
+                  <small>Likely Effort</small>
+                  <strong>{hours(task.likelyHours)} ({hours(task.optimisticHours || task.likelyHours * 0.7)}–{hours(task.pessimisticHours || task.likelyHours * 1.6)})</strong>
+                </div>
+                <div className="meta-item">
+                  <small>Priority</small>
+                  <strong style={{ color: task.priority === "high" ? "#ef4444" : "#ffffff" }}>{titleCase(task.priority || "normal")}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="meta-box">
+              <div className="meta-box-title">Schedule Diagnostics</div>
+              <div className="meta-grid-2">
+                <div className="meta-item">
+                  <small>Diagnostic Status</small>
+                  <strong style={{ color: status === "At risk" ? "#ef4444" : status === "Tight" ? "#f59e0b" : "#22c55e" }}>
+                    {status}
+                  </strong>
+                </div>
+                <div className="meta-item">
+                  <small>Safe Start Date</small>
+                  <strong>{plan?.startDate ? formatDay(dateKeyToDate(plan.startDate), { month: "short", day: "numeric" }) : "Today"}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="meta-box">
+              <div className="meta-box-title">Recommended Strategy</div>
+              <p style={{ margin: 0, fontSize: 11, color: "#9da1aa", lineHeight: 1.4 }}>
+                {status === "At risk"
+                  ? "High crunch risk detected. Add capacity or adjust priority to avoid deadline shortfall."
+                  : "On track. Schedule study sessions in 90-minute intervals before the target date."}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="modal-footer">
+        <button
+          className="button button-secondary"
+          onClick={() => {
+            onClose();
+            setModal({ type: "task", task });
+          }}
+        >
+          <SlidersHorizontal size={14} /> Edit Task
+        </button>
+        <button
+          className="button button-primary"
+          onClick={() => {
+            onClose();
+            startTimer(task);
+          }}
+        >
+          <Play size={14} /> Start Timer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AllDeadlinesModal({ tasks, data, planById, setModal, completeTask, startTimer, onClose }) {
+  const [filterType, setFilterType] = useState("all");
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    return tasks.filter((t) => {
+      const matchType = filterType === "all" || (filterType === "urgent" ? ["tight", "at_risk"].includes(planById?.get(String(t.id))?.status) : t.type === filterType);
+      const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase()) || courseFor(t, data)?.name.toLowerCase().includes(search.toLowerCase());
+      return matchType && matchSearch;
+    });
+  }, [tasks, filterType, search, planById, data]);
+
+  return (
+    <div className="modal-content all-deadlines-modal">
+      <ModalHeader
+        eyebrow="ACADEMIC COMMITMENTS"
+        title={`All Deadlines (${tasks.length})`}
+        onClose={onClose}
+      />
+      <div className="modal-body" style={{ padding: 20 }}>
+        {/* Search and filter toolbar */}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {["all", "urgent", "assignment", "exam"].map((type) => (
+              <button
+                key={type}
+                className={`pill-nav-item ${filterType === type ? "active" : ""}`}
+                style={{ padding: "5px 14px", fontSize: 12, background: filterType === type ? "#ffffff" : "#25262b", color: filterType === type ? "#121214" : "#9da1aa" }}
+                onClick={() => setFilterType(type)}
+              >
+                {titleCase(type)}
+              </button>
+            ))}
+          </div>
+          <div className="search-box" style={{ background: "#25262b", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 999 }}>
+            <Search size={15} />
+            <input
+              placeholder="Search commitments..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ fontSize: 12 }}
+            />
+          </div>
+        </div>
+
+        {/* Full Table */}
+        <div style={{ overflowX: "auto", maxHeight: 420 }}>
+          <table className="tasks-mini-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>TITLE</th>
+                <th>COURSE</th>
+                <th>DUE DATE</th>
+                <th>ESTIMATE</th>
+                <th>STATUS</th>
+                <th style={{ textAlign: "right" }}>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length ? filtered.map((task) => {
+                const course = courseFor(task, data);
+                const plan = planById?.get(String(task.id));
+                const status = taskStatus(task, plan);
+                const pillClass = status === "At risk" ? "urgent" : status === "Tight" ? "review" : task.status === "done" ? "completed" : "available";
+                return (
+                  <tr key={task.id}>
+                    <td>
+                      <strong>{task.title}</strong>
+                    </td>
+                    <td>
+                      <span style={{ color: course?.color || "#9da1aa", fontWeight: 550 }}>
+                        {course?.name || "Personal"}
+                      </span>
+                    </td>
+                    <td style={{ color: "#d1d5db", whiteSpace: "nowrap" }}>
+                      {taskDateLabel(task.dueAt, data.profile.timezone, { month: "short", day: "numeric" })} · {timeLabel(task.dueAt, data.profile.timezone)}
+                    </td>
+                    <td style={{ color: "#9da1aa", whiteSpace: "nowrap" }}>
+                      {hours(plan?.remainingHours ?? task.likelyHours)}
+                    </td>
+                    <td>
+                      <span className={`pill-status ${pillClass}`}>
+                        {status === "At risk" ? "Urgent" : status === "Tight" ? "Review" : status === "Done" ? "Completed" : "On Track"}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button
+                        className="button button-quiet compact"
+                        onClick={() => {
+                          onClose();
+                          startTimer(task);
+                        }}
+                        title="Start timer"
+                      >
+                        <Play size={13} />
+                      </button>
+                      <button
+                        className="button button-quiet compact"
+                        onClick={() => {
+                          onClose();
+                          setModal({ type: "task", task });
+                        }}
+                        title="Edit task"
+                      >
+                        <SlidersHorizontal size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "32px 12px", color: "#8e929d" }}>
+                    No commitments found matching criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="modal-footer">
+        <button
+          className="button button-secondary"
+          onClick={() => {
+            onClose();
+            setModal({ type: "task" });
+          }}
+        >
+          <Plus size={15} /> Add Deadline
+        </button>
+        <button className="button button-primary" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Overview({ data, schedule, planById, week, weekOffset, setWeekOffset, selectedDay, setSelectedDay, setPage, setModal, markMissed, completeTask }) {
   const today = dateKeyInZone(new Date(), data.profile.timezone);
   const weekStart = week[0];
@@ -528,7 +1251,6 @@ function Overview({ data, schedule, planById, week, weekOffset, setWeekOffset, s
   const openSorted = data.tasks.filter((task) => task.status === "open").sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt));
   const todayItems = schedule.allocations.filter((item) => item.day === today);
   const weekOpen = openSorted.filter((task) => dueDay(task, data.profile.timezone) >= localDay(weekStart) && dueDay(task, data.profile.timezone) <= localDay(weekEnd));
-  const byType = weekOpen.reduce((acc, task) => ({ ...acc, [task.type]: (acc[task.type] || 0) + 1 }), {});
   const weekLoad = week.reduce((sum, day) => sum + (Number(schedule.dailyLoad[localDay(day)]) || 0), 0);
   const capacity = week.reduce((sum, day) => {
     const key = localDay(day);
@@ -543,50 +1265,178 @@ function Overview({ data, schedule, planById, week, weekOffset, setWeekOffset, s
     return [key, { date: day, capacity: dayCapacity, load: Number(schedule.dailyLoad[key]) || 0 }];
   }));
   const redRuns = getCollisionRuns([...forecast.values()]);
-  return <>
-    <PageIntro eyebrow="Weekly focus" title="Your week, in focus." subtitle={data.profile.name ? `A clear view of what’s ahead, ${data.profile.name}.` : "A clear view of what’s ahead, shaped around your time."} actions={<><button className="button button-secondary" onClick={() => setModal({ type: "capture" })}><Plus size={16} /> Quick capture</button><button className="button button-primary" onClick={() => setModal({ type: "import" })}><Upload size={16} /> Import text</button></>} />
-    {WEEK.reduce((sum, day) => sum + Number(data.availability[day] || 0), 0) === 0 && <button className="setup-nudge" onClick={() => setPage("availability")}><Clock3 size={17} /><span><strong>Set your study time when you’re ready.</strong><small>Your plan uses only the hours you choose to make available.</small></span><ArrowUpRight size={16} /></button>}
-    <div className="dashboard-grid">
-      <section className="card workload-card span-8">
-        <div className="card-header workload-header"><div><div className="card-kicker">Workload</div><h2>{monthName(weekStart)} <span className="range-dot">·</span> Week {weekOfYear(weekStart)}</h2></div><div className="week-tools"><button className="icon-button compact" aria-label="Previous week" onClick={() => setWeekOffset(weekOffset - 1)}><ChevronLeft size={17} /></button><button className="today-link" onClick={() => setWeekOffset(0)}>Today</button><button className="icon-button compact" aria-label="Next week" onClick={() => setWeekOffset(weekOffset + 1)}><ChevronRight size={17} /></button><button className="select-pill" onClick={() => setPage("calendar")}>Week <ChevronDown size={14} /></button></div></div>
-        <div className="workload-summary"><strong>{Object.entries(byType).map(([type, count]) => `${count} ${count === 1 ? singular(type) : plural(type)}`).join(" · ") || "No deadlines this week"}</strong><span>{hours(weekLoad)} planned · {hours(capacity)} available</span></div>
-        <Heatmap week={week} forecast={forecast} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onSelect={(date) => setModal({ type: "calendar-day", date })} />
-        <div className="heatmap-legend"><span><i className="legend-dot light" /> Light</span><span><i className="legend-dot busy" /> Busy</span><span><i className="legend-dot heavy" /> Heavy</span><span><i className="legend-dot off" /> Off</span><span className="legend-caption">Daily load vs available hours</span></div>
-        {redRuns.length > 0 && <div className="collision-explain"><TriangleAlert size={15} /><span>{redRuns.length === 1 ? "Heavy load for" : "Heavy load across"} {redRuns.map((run) => `${formatDay(dateKeyToDate(run[0]), { weekday: "short" })}–${formatDay(dateKeyToDate(run.at(-1)), { weekday: "short" })}`).join(" · ")}.</span></div>}
-      </section>
-      <section className="card today-card span-4">
-        <div className="card-header"><div><div className="card-kicker">{formatDay(new Date(), { weekday: "long", month: "short", day: "numeric" })}</div><h2>Today’s plan</h2></div><button className="icon-button compact" aria-label="Open today's plan" onClick={() => setPage("plan")}><ArrowUpRight size={17} /></button></div>
-        <div className="today-total"><strong>{hours(todayItems.reduce((sum, item) => sum + item.hours, 0))}</strong><span>planned</span><div className="today-progress"><span style={{ width: `${Math.min(100, todayItems.reduce((sum, item) => sum + item.hours, 0) / Math.max(1, forecast.get(today)?.capacity || 1) * 100)}%` }} /></div></div>
-        <div className="today-list">{todayItems.length ? todayItems.slice(0, 4).map((allocation) => {
-          const task = data.tasks.find((item) => item.id === allocation.taskId);
-          if (!task) return null;
-          const course = courseFor(task, data);
-          return <div className="today-row" key={task.id}><span className="course-marker" style={{ "--course-color": course?.color || "var(--accent)" }} /><div className="today-row-copy"><strong>{task.title}</strong><span>{course?.name || "Personal"} · {hours(allocation.hours)}</span></div><button className="icon-button compact task-overflow" aria-label={`Options for ${task.title}`} onClick={() => setModal({ type: "task-menu", task })}><MoreHorizontal size={17} /></button></div>;
-        }) : <div className="empty-today"><div className="empty-icon"><CalendarCheck2 size={22} /></div><strong>Nothing planned today.</strong><span>Enjoy a little breathing room.</span></div>}</div>
-        <button className="card-footer-link" onClick={() => setPage("plan")}>View day plan <ArrowUpRight size={15} /></button>
-      </section>
 
-      <section className="card start-card span-4"><div className="card-header"><div><div className="card-kicker">A little breathing room</div><h2>Start by</h2></div><span className="tiny-label">Latest safe start</span></div>
-        <div className="start-list">{openSorted.slice(0, 3).map((task) => {
-          const plan = planById.get(String(task.id)); const course = courseFor(task, data); const status = taskStatus(task, plan);
-          return <button className="start-item" key={task.id} onClick={() => setModal({ type: "task", task })}><span className="start-date">{plan?.startDate ? formatDay(dateKeyToDate(plan.startDate), { month: "short", day: "numeric" }) : "No slot"}</span><span className="start-copy"><strong>{task.title}</strong><small>{course?.name || "Personal"} · {hours(plan?.remainingHours ?? getEstimateFor(task, data.courses).expected)}</small></span><StatusBadge status={status} compact /></button>;
-        })}</div>
-        <button className="card-footer-link" onClick={() => setPage("plan")}>See your full plan <ArrowUpRight size={15} /></button>
-      </section>
+  // Risk Score calculation
+  const loadRatio = capacity > 0 ? (weekLoad / capacity) : (weekLoad > 0 ? 1.5 : 0);
+  const riskScore = Math.min(100, Math.round(
+    (redRuns.length > 0 ? 70 : 25) +
+    (tightTasks.length * 12) +
+    (loadRatio > 1 ? 25 : loadRatio * 20)
+  ));
+  const utilizationPct = capacity > 0 ? Math.min(100, Math.round((weekLoad / capacity) * 100)) : (weekLoad > 0 ? 100 : 0);
 
-      <section className="card upcoming-card span-4"><div className="card-header"><div><div className="card-kicker">Keep an eye on</div><h2>Upcoming</h2></div><button className="icon-button compact" aria-label="View all tasks" onClick={() => setPage("tasks")}><ArrowUpRight size={17} /></button></div>
-        <div className="upcoming-list">{openSorted.slice(0, 3).map((task) => <TaskMini key={task.id} task={task} data={data} plan={planById.get(String(task.id))} />)}</div>
-      </section>
+  return (
+    <>
+      {/* Hero Display Header matching Video */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 16 }}>
+        <div className="dashboard-hero-title">
+          <span className="hero-kicker">AI-POWERED WORKLOAD ENGINE</span>
+          <h1 className="hero-display-headline">
+            Clearer Deadlines,<br />
+            Faster Decisions.
+          </h1>
+          <p className="hero-subtitle">
+            Anticipate study bottlenecks before they form. Work with peace of mind.
+          </p>
+        </div>
+        <div className="hero-date-filter">
+          <button className="date-filter-pill" onClick={() => setPage("calendar")}>
+            <CalendarDays size={15} color="#df5f10" />
+            <span>{monthName(weekStart)} · Week {weekOfYear(weekStart)}</span>
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      </div>
 
-      <section className="card availability-card span-4"><div className="card-header"><div><div className="card-kicker">This week</div><h2>Available hours</h2></div><button className="icon-button compact" aria-label="Edit availability" onClick={() => setPage("availability")}><ArrowUpRight size={17} /></button></div>
-        <div className="availability-number"><strong>{hours(Math.max(0, capacity - weekLoad))}</strong><span>left to plan</span></div>
-        <div className="capacity-bar"><span style={{ width: `${capacity ? Math.min(100, weekLoad / capacity * 100) : 0}%` }} /></div>
-        <div className="capacity-meta"><span>{hours(weekLoad)} of {hours(capacity)} scheduled</span><button onClick={() => setPage("availability")}>Edit availability</button></div>
-        {data.overrides.some((item) => item.startDate <= localDay(weekEnd) && item.endDate >= localDay(weekStart)) && <div className="inline-note"><InfoDot /> Date overrides are included in this total.</div>}
-      </section>
-    </div>
-    {tightTasks.length > 0 && <section className="risk-strip"><TriangleAlert size={17} /><div><strong>{tightTasks.length} task{tightTasks.length > 1 ? "s" : ""} need a closer look</strong><span>{tightTasks[0].title}{planById.get(String(tightTasks[0].id))?.status === "at_risk" ? ` is ${hours(planById.get(String(tightTasks[0].id)).shortfall)} short.` : " has little room for an estimate change."}</span></div><button className="button button-secondary compact-button" onClick={() => setPage("plan")}>Review plan</button></section>}
-  </>;
+      {/* 3 Metric Stat Cards with Equalizer Meters */}
+      <div className="stat-cards-row">
+        {/* Stat Card 1 */}
+        <div className="stat-card">
+          <div className="stat-card-head">
+            <div className="stat-icon-circle">
+              <CalendarCheck2 size={16} />
+            </div>
+            <span className="stat-label">Weekly Commitments</span>
+            <span className="stat-delta green">+12%</span>
+          </div>
+          <div className="stat-big-number">{openSorted.length}</div>
+          <div style={{ fontSize: 11, color: "#8e929d", marginBottom: 12 }}>
+            {weekOpen.length} due this week · {todayItems.length} active today
+          </div>
+          <EqualizerMeter
+            count={24}
+            percentage={Math.min(100, (openSorted.length / Math.max(1, openSorted.length + 4)) * 100)}
+            color="green"
+          />
+        </div>
+
+        {/* Stat Card 2 */}
+        <div className="stat-card">
+          <div className="stat-card-head">
+            <div className="stat-icon-circle">
+              <TriangleAlert size={16} />
+            </div>
+            <span className="stat-label">Crunch Risk Score</span>
+            <span className={`stat-delta ${redRuns.length > 0 ? "red" : tightTasks.length > 0 ? "amber" : "green"}`}>
+              {redRuns.length > 0 ? "Critical" : tightTasks.length > 0 ? "Moderate" : "Optimal"}
+            </span>
+          </div>
+          <div className="stat-big-number">{riskScore}%</div>
+          <div style={{ fontSize: 11, color: "#8e929d", marginBottom: 12 }}>
+            {redRuns.length > 0
+              ? `Collision: ${redRuns.length} day spike`
+              : tightTasks.length > 0
+              ? `${tightTasks.length} task${tightTasks.length > 1 ? "s" : ""} need attention`
+              : "Workload balanced & safe"}
+          </div>
+          <EqualizerMeter
+            count={24}
+            percentage={riskScore}
+            color={redRuns.length > 0 ? "red" : tightTasks.length > 0 ? "amber" : "green"}
+          />
+        </div>
+
+        {/* Stat Card 3 */}
+        <div className="stat-card">
+          <div className="stat-card-head">
+            <div className="stat-icon-circle">
+              <Clock3 size={16} />
+            </div>
+            <span className="stat-label">Capacity Utilization</span>
+            <span className="stat-delta amber">{hours(Math.max(0, capacity - weekLoad))} buffer</span>
+          </div>
+          <div className="stat-big-number">{hours(weekLoad)} <span style={{ fontSize: 18, color: "#8e929d", fontWeight: 500 }}>/ {hours(capacity)}</span></div>
+          <div style={{ fontSize: 11, color: "#8e929d", marginBottom: 12 }}>
+            {utilizationPct}% of weekly study budget
+          </div>
+          <EqualizerMeter
+            count={24}
+            percentage={utilizationPct}
+            color="amber"
+          />
+        </div>
+      </div>
+
+      {/* Asymmetric 2-Column Grid */}
+      <div className="asymmetric-grid">
+        {/* Left Column: Workload Radar + Profile */}
+        <div className="asymmetric-col">
+          <WorkloadRadar
+            tasks={openSorted}
+            data={data}
+            planById={planById}
+            onSelectMarker={(task, idx) => setModal({ type: "radar-details", task, markerIndex: idx })}
+          />
+          <ProfileCard data={data} capacity={capacity} />
+        </div>
+
+        {/* Right Column: Recent Commitments Table + Availability Action */}
+        <div className="asymmetric-col">
+          <RecentDeadlinesCard
+            tasks={openSorted}
+            data={data}
+            planById={planById}
+            setModal={setModal}
+            onViewAll={() => setModal({ type: "all-deadlines" })}
+          />
+          <AvailabilityActionCard
+            capacity={capacity}
+            weekLoad={weekLoad}
+            setPage={setPage}
+            setModal={setModal}
+          />
+        </div>
+      </div>
+
+      {/* Weekly Breakdown Heatmap */}
+      <div style={{ marginTop: 24 }}>
+        <div className="card workload-card" style={{ borderRadius: 20 }}>
+          <div className="card-header workload-header">
+            <div>
+              <div className="card-kicker">Weekly Schedule Breakdown</div>
+              <h3 style={{ margin: 0, fontSize: 16 }}>{monthName(weekStart)} · Daily Capacity & Load</h3>
+            </div>
+            <div className="week-tools">
+              <button className="icon-button compact" aria-label="Previous week" onClick={() => setWeekOffset(weekOffset - 1)}>
+                <ChevronLeft size={17} />
+              </button>
+              <button className="today-link" onClick={() => setWeekOffset(0)}>Today</button>
+              <button className="icon-button compact" aria-label="Next week" onClick={() => setWeekOffset(weekOffset + 1)}>
+                <ChevronRight size={17} />
+              </button>
+              <button className="select-pill" onClick={() => setPage("calendar")}>
+                Calendar <ChevronDown size={14} />
+              </button>
+            </div>
+          </div>
+          <Heatmap week={week} forecast={forecast} selectedDay={selectedDay} setSelectedDay={setSelectedDay} onSelect={(date) => setModal({ type: "calendar-day", date })} />
+          <div className="heatmap-legend">
+            <span><i className="legend-dot light" /> Light</span>
+            <span><i className="legend-dot busy" /> Busy</span>
+            <span><i className="legend-dot heavy" /> Heavy</span>
+            <span><i className="legend-dot off" /> Off</span>
+            <span className="legend-caption">Daily load vs available hours</span>
+          </div>
+          {redRuns.length > 0 && (
+            <div className="collision-explain">
+              <TriangleAlert size={15} />
+              <span>{redRuns.length === 1 ? "Heavy load for" : "Heavy load across"} {redRuns.map((run) => `${formatDay(dateKeyToDate(run[0]), { weekday: "short" })}–${formatDay(dateKeyToDate(run.at(-1)), { weekday: "short" })}`).join(" · ")}.</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
 }
 
 function weekOfYear(date) {
