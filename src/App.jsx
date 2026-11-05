@@ -1,4 +1,5 @@
-import { Show, SignInButton, SignUpButton, UserButton, useUser } from "@clerk/react";
+import { Show, SignInButton, SignUpButton, UserButton, useUser, useAuth } from "@clerk/react";
+import { apiCreateTask, apiFetchTasks } from "./lib/api.js";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight, ArrowUpRight, Bell, BookOpen, CalendarCheck2, CalendarDays,
@@ -120,6 +121,7 @@ function previewLoads(data, plan) {
 
 function App() {
   const { user, isSignedIn, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const [view, setView] = useState(() => {
   if (typeof window !== "undefined") {
     const hash = window.location.hash;
@@ -168,6 +170,28 @@ function App() {
       saveState(data, user?.id);
     }
   }, [data, user?.id, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      apiFetchTasks(getToken)
+        .then((serverTasks) => {
+          if (Array.isArray(serverTasks) && serverTasks.length > 0) {
+            setData((current) => {
+              const serverMap = new Map(serverTasks.map((t) => [t.id, t]));
+              const mergedTasks = current.tasks.map((t) => serverMap.get(t.id) || t);
+              const localIds = new Set(current.tasks.map((t) => t.id));
+              for (const st of serverTasks) {
+                if (!localIds.has(st.id)) mergedTasks.push(st);
+              }
+              return { ...current, tasks: mergedTasks };
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn("[Sync] Server tasks fetch skipped / offline:", err.message);
+        });
+    }
+  }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
     function receiveExtensionCapture(event) {
@@ -232,6 +256,11 @@ function App() {
       commit((current) => ({ ...current, tasks: [saved, ...current.tasks] }), "Task added · plan refreshed");
       if (inboxId) commit((current) => ({ ...current, inbox: current.inbox.filter((item) => item.id !== inboxId) }));
       writeTaskHistory(saved.id, "Created task", null, saved);
+      if (isSignedIn) {
+        apiCreateTask(saved, getToken).catch((err) => {
+          console.warn("[Sync] Task saved locally; server sync pending:", err.message);
+        });
+      }
     }
     setModal(null);
   }

@@ -12,6 +12,7 @@
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Environment Variables](#environment-variables)
+  - [Database Setup (PostgreSQL & Prisma)](#-database-setup-postgresql--prisma)
   - [Development Scripts](#development-scripts)
 - [🧩 Browser Extension Setup](#-browser-extension-setup)
 - [🏛️ Project Architecture](#️-project-architecture)
@@ -29,7 +30,7 @@ Most academic planners and calendar apps are passive: they show deadlines on the
 - Schedules work backwards from deadlines using **topological dependency sorting** against student-defined daily study capacities.
 - Flags **deadline collision runs** up to 14 days in advance.
 - Extracts dates and obligations directly from syllabi or screenshots using **browser-local OCR** and a **Manifest V3 Chrome Extension**.
-- Keeps student data **100% private and client-first** with user-scoped storage.
+- Synchronizes seamlessly with a **PostgreSQL database** via **Prisma ORM** while maintaining a resilient, **offline-first local cache**.
 
 ---
 
@@ -81,11 +82,12 @@ Most academic planners and calendar apps are passive: they show deadlines on the
 - **Manual Work Logger:** Record completed study minutes against specific tasks.
 - **Remaining-Work Check-in:** Update estimated remaining hours on partially finished work to automatically recalibrate future allocations.
 
-### 9. 🔐 Clerk Authentication & User Data Isolation
-- **Secure Authentication:** Integrated Clerk React 19 SDK supporting modal sign-in and sign-up flows.
-- **Account-Scoped Local Storage:** Workspace databases are automatically namespaced by user ID (`crunchless-project-v24_${userId}`), ensuring complete data isolation between accounts on shared devices.
-- **Guest Fallback:** Full offline/unauthenticated guest mode supported out-of-the-box.
-- **Backend Protection:** Express API configured with `@clerk/express` middleware.
+### 9. 🔐 Clerk Authentication & PostgreSQL Cloud Sync
+- **Clerk Authentication:** Modal sign-in and sign-up powered by Clerk.
+- **Multi-Tenant User Isolation:** Internal PostgreSQL `User.id` scopes all tasks, courses, and projects; external `clerkUserId` handles authentication.
+- **Just-in-Time (JIT) Provisioning:** Automatic user record creation in PostgreSQL on first authenticated request.
+- **Atomic Guest Migration:** Migrates local guest schedules, availability, and tasks into PostgreSQL upon first login without data loss.
+- **Offline-First Resilience:** Instantaneous local state updates with background cloud synchronization.
 
 ### 10. 🚀 Interactive SaaS Landing Page (`LandingPage.jsx`)
 - Modern product tour at `#landing` with interactive UI simulator tabs, 4-step workflow, and FAQ accordion.
@@ -97,6 +99,7 @@ Most academic planners and calendar apps are passive: they show deadlines on the
 ### Prerequisites
 - **Node.js:** `v22.12.0` or newer
 - **npm:** `v10.0.0` or newer
+- **PostgreSQL:** `v14` or newer (local installation, Docker, or hosted)
 
 ### Installation
 
@@ -116,21 +119,79 @@ Most academic planners and calendar apps are passive: they show deadlines on the
 Create a `.env` file in the root directory:
 
 ```env
-# Clerk Authentication (Required for sign-in/up)
+# Clerk Frontend Publishable Key (Required for sign-in/up)
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+
+# Clerk Backend Secret Key (Required for authenticated Express API requests)
+CLERK_SECRET_KEY=sk_test_...
+
+# PostgreSQL Database Connection URL
+DATABASE_URL=postgresql://postgres:password@localhost:5432/crunchless?schema=public
 
 # Express API Port (Default: 4000)
 PORT=4000
-
-# Optional Clerk Secret Key (for backend token verification)
-CLERK_SECRET_KEY=sk_test_...
-
-# Optional Database URL (for future PostgreSQL adapter)
-DATABASE_URL=postgresql://user:password@localhost:5432/crunchless
 ```
 
 > [!NOTE]
-> If `VITE_CLERK_PUBLISHABLE_KEY` is omitted, the application will render a graceful startup warning advising you to add your publishable key.
+> - Find your Clerk keys in the [Clerk Dashboard](https://dashboard.clerk.com) under **Configure → API keys**.
+> - If `CLERK_SECRET_KEY` is omitted, the API will run in local-only / guest mode.
+
+---
+
+### 🗄️ Database Setup (PostgreSQL & Prisma)
+
+Crunchless uses **PostgreSQL** paired with **Prisma ORM** for cloud persistence, strict tenant isolation, and trigram fuzzy matching (`pg_trgm`).
+
+#### 1. Create the Database
+Connect to your PostgreSQL server (via `psql` or pgAdmin) and create the database:
+
+```sql
+CREATE DATABASE crunchless;
+```
+
+#### 2. Push Schema to PostgreSQL
+Run Prisma's schema push command to create all 16 relational models, indexes, and extensions:
+
+```bash
+npx prisma db push
+```
+
+#### 3. Generate Prisma Client
+Generate the Prisma Client code:
+
+```bash
+npx prisma generate
+```
+
+#### 4. Verify Database Connectivity
+Start the server and ping the health check endpoint:
+
+```bash
+node --env-file=.env server/index.js
+```
+
+In your browser or terminal, visit `http://localhost:4000/api/health`. You should see:
+
+```json
+{
+  "status": "ok",
+  "service": "crunchless-api",
+  "database": "connected",
+  "databaseConfiguration": "configured",
+  "databaseError": null,
+  "clerkConfigured": true
+}
+```
+
+#### 5. Visual Database Inspection (Prisma Studio)
+To inspect or debug database records visually in a web UI:
+
+```bash
+npx prisma studio
+```
+Opens Prisma Studio at `http://localhost:5555`.
+
+---
 
 ### Development Scripts
 
@@ -139,7 +200,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/crunchless
 | **`npm run dev`** | Runs both the Vite frontend (`localhost:5173`) and Express API (`localhost:4000`) concurrently. |
 | **`npm run dev:web`** | Runs only the Vite client application on `http://localhost:5173`. |
 | **`npm run dev:api`** | Runs only the Express backend API on `http://localhost:4000` with hot-reload watch mode. |
-| **`npm test`** | Executes the automated test suite using Node.js native test runner (`node:test`). |
+| **`npm test`** | Executes the full 14-test automated suite using Node.js native test runner (`node:test`). |
 | **`npm run build`** | Bundles the application for production using Vite. Output stored in `dist/`. |
 | **`npm start`** | Starts the standalone Express production server. |
 
@@ -171,11 +232,21 @@ Crunchless/
 │   ├── content.js             # Bidirectional postMessage bridge
 │   ├── popup.html             # Quick capture toolbar popup
 │   └── popup.js
+├── prisma/                    # Relational Database Schema
+│   └── schema.prisma          # PostgreSQL 16-model schema with pg_trgm extension
 ├── server/                    # Node.js Express 5.x API
-│   ├── index.js               # Stateless REST endpoints & Clerk middleware
-│   └── schema.sql             # Reference PostgreSQL schema
+│   ├── db.js                  # Prisma singleton client & health verification
+│   ├── index.js               # Express 5 server & route registry
+│   ├── middleware/            # Auth & security middleware
+│   │   └── auth.js            # Clerk token validation & JIT user provisioning
+│   └── routes/                # REST API routers
+│       ├── tasks.js           # Tenant-isolated tasks CRUD
+│       ├── courses.js         # User-scoped courses CRUD
+│       ├── projects.js        # User-scoped projects CRUD
+│       └── workspace.js       # Cloud workspace fetch & atomic guest import
 ├── src/                       # Frontend Application
 │   ├── lib/
+│   │   ├── api.js             # Clerk-authenticated API client with offline fallback
 │   │   ├── scheduler.js       # Pure functional deterministic scheduling engine
 │   │   └── storage.js         # User-scoped localStorage persistence & date math
 │   ├── App.jsx                # Core application shell, routing & views
@@ -183,9 +254,12 @@ Crunchless/
 │   ├── main.jsx               # Application root & ClerkProvider setup
 │   ├── landing.css            # Styles for product tour & marketing page
 │   └── styles.css             # Crunchless Glass semantic design tokens
-├── tests/                     # Automated Test Suite
+├── tests/                     # Automated Test Suite (14 passing tests)
 │   ├── scheduler.test.js      # Scheduler priority, shortfall & cycle tests
-│   └── storage.test.js        # LocalStorage migration & state tests
+│   ├── storage.test.js        # LocalStorage migration & state tests
+│   ├── vertical_slice.test.js # Multi-tenant isolation & JIT user provisioning tests
+│   └── workspace.test.js      # Courses, projects & atomic guest import tests
+├── IMPLEMENTATION_PLAN.md     # 14-section architectural implementation plan
 ├── PROJECT_REPORT.md          # Comprehensive academic project report
 ├── log.md                     # Feature implementation changelog
 └── package.json
@@ -201,18 +275,20 @@ Crunchless uses Node.js's native test runner (`node:test` and `node:assert/stric
 npm test
 ```
 
-### Test Coverage Highlights:
-- **Scheduler Priority:** High-priority tasks are scheduled before lower-priority tasks when capacity is constrained.
-- **Shortfall Calculation:** Accurately flags over-capacity work as `at_risk` with exact shortfall hours.
-- **Dependency Ordering:** Verifies dependent tasks are only placed after prerequisite allocations are satisfied.
-- **Cycle Detection:** Ensures circular dependencies are flagged as `at_risk` without throwing stack overflows or freezing the event loop.
-- **Storage Isolation & Migration:** Tests clean workspace seeding, sample task stripping, and user schedule preservation.
+### Test Coverage (14 Passing Tests):
+- **Deterministic Scheduler:** Priority weighting, capacity shortfall calculation, dependency sequencing, and cycle detection.
+- **Storage & State Seeding:** Verifies user workspace seeding, legacy sample pruning, and schedule preservation.
+- **API Health & Database Connectivity:** Dynamic PostgreSQL connection testing (`SELECT 1`).
+- **Clerk Authentication & Security:** Enforces `401 Unauthorized` for unauthenticated requests and verifies Clerk token resolution.
+- **Tenant Isolation:** Rigorously validates that User A cannot read, modify, or reference User B's tasks, courses, or projects.
+- **Workspace Sync & Guest Migration:** Tests atomic bulk migration of guest tasks, courses, projects, overrides, and inbox captures into PostgreSQL.
 
 ---
 
 ## 🔒 Privacy & Data Portability
 
-- **100% Local-First:** All schedule computations, task storage, and OCR text extraction happen directly inside your web browser.
+- **Offline-First & Local-First:** All schedule computations, task storage, and OCR text extraction happen directly inside your web browser.
+- **Encrypted Cloud Sync:** When signed in, user records are synchronized to your PostgreSQL database with strict tenant isolation.
 - **No Third-Party Telemetry:** Student commitments and study hours are never tracked, monetized, or sent to an LLM.
 - **Full JSON Backup & Restore:**
   - Export your entire workspace anytime via **Settings → Download backup**.
