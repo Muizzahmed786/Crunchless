@@ -1,0 +1,437 @@
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+// =============================================================
+// USER & WORKSPACE PROFILE
+// =============================================================
+
+model User {
+  id                 Int      @id @default(autoincrement())
+  clerkUserId        String   @unique @map("clerk_user_id")
+  name               String
+  email              String?
+  timezone           String   @default("UTC")
+  dateOrder          String?  @map("date_order") // 'DD/MM' | 'MM/DD'
+  semester           String?
+  weeklyAvailability Json     @default("{\"mon\":0,\"tue\":0,\"wed\":0,\"thu\":0,\"fri\":0,\"sat\":0,\"sun\":0}") @map("weekly_availability")
+  schedulerSettings  Json     @default("{\"minSession\":0.5,\"maxPerTaskPerDay\":3,\"bufferDays\":0,\"earlyStartShare\":0}") @map("scheduler_settings")
+  appearance         String   @default("system")
+  version            Int      @default(1) // Optimistic concurrency version
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  courses             Course[]
+  projects            Project[]
+  tasks               Task[]
+  overrides           AvailabilityOverride[]
+  workSessions        WorkSession[]
+  workSessionChanges  WorkSessionChange[]
+  taskChanges         TaskChange[]
+  effortStats         EffortStat[]
+  userEffortStats     UserEffortStat[]
+  imports             Import[]
+  inboxItems          InboxItem[]
+  classMemberships    ClassMember[]
+  ownedClasses        Class[]                  @relation("ClassOwner")
+  sharedTaskCopies    SharedTaskCopy[]
+  sharedConfirmations SharedTaskConfirmation[]
+  timetableSlots      TimetableSlot[]
+
+  @@map("users")
+}
+
+// =============================================================
+// AVAILABILITY OVERRIDES
+// =============================================================
+
+model AvailabilityOverride {
+  id        String   @id @default(cuid())
+  userId    Int      @map("user_id")
+  startDate String   @map("start_day") // YYYY-MM-DD
+  endDate   String   @map("end_day")   // YYYY-MM-DD
+  hours     Decimal? @db.Decimal(3, 1) // null = fully blocked day
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate, endDate], name: "overrides_user_days")
+  @@map("availability_overrides")
+}
+
+// =============================================================
+// COURSES & PROJECTS
+// =============================================================
+
+model Course {
+  id         String   @id @default(cuid())
+  userId     Int      @map("user_id")
+  name       String
+  color      String
+  semester   String?
+  difficulty Decimal  @default(1.0) @db.Decimal(3, 2)
+  defaults   Json     @default("{}") // e.g. {"assignment": 3, "exam": 8}
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks          Task[]
+  effortStats    EffortStat[]
+  effortDefaults CourseEffortDefault[]
+  timetableSlots TimetableSlot[]
+
+  @@unique([userId, name], name: "unique_course_name_per_user")
+  @@index([userId])
+  @@map("courses")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      Int      @map("user_id")
+  name        String
+  color       String   @default("#df5f10")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@unique([userId, name], name: "unique_project_name_per_user")
+  @@index([userId])
+  @@map("projects")
+}
+
+// =============================================================
+// TASKS & ALLOCATIONS
+// =============================================================
+
+model Task {
+  id                    String    @id @default(cuid())
+  userId                Int       @map("user_id")
+  courseId              String?   @map("course_id")
+  projectId             String?   @map("project_id")
+  title                 String
+  type                  String    @default("assignment") // assignment | exam | lab | quiz | project | event
+  dueAt                 DateTime  @map("due_at")
+  optimisticHours       Decimal   @default(2.0) @map("est_min") @db.Decimal(5, 1)
+  likelyHours           Decimal   @default(3.0) @map("est_likely") @db.Decimal(5, 1)
+  pessimisticHours      Decimal   @default(5.0) @map("est_max") @db.Decimal(5, 1)
+  baselineExpectedHours Decimal?  @map("baseline_expected_hours") @db.Decimal(5, 1)
+  remainingHours        Decimal?  @map("remaining_hours") @db.Decimal(5, 1)
+  remainingReportedAt   DateTime? @map("remaining_reported_at")
+  sizeHint              String?   @map("size_hint") // small | normal | large
+  gradeWeight           Decimal?  @map("grade_weight") @db.Decimal(4, 1)
+  priority              String    @default("normal") // high | normal | low
+  dependsOn             String?   @map("depends_on")
+  status                String    @default("open") // open | done | cancelled | archived
+  statusBeforeCancel    String?   @map("status_before_cancel")
+  statusBeforeArchive   String?   @map("status_before_archive")
+  planStatus            String?   @map("plan_status") // on_track | tight | at_risk
+  planReason            String?   @map("plan_reason")
+  source                String    @default("manual") // manual | pasted | export | shared
+  confidence            Decimal?  @db.Decimal(3, 2)
+  suggestedStart        String?   @map("suggested_start") // YYYY-MM-DD
+  atRiskHours           Decimal?  @default(0) @map("at_risk_hours") @db.Decimal(5, 1)
+  recurrenceRule        String?   @map("recurrence_rule")
+  notes                 String?
+  version               Int       @default(1)
+  deletedAt             DateTime? @map("deleted_at") // Tombstone for sync
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course         Course?          @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  project        Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  prerequisite   Task?            @relation("TaskDependencies", fields: [dependsOn], references: [id], onDelete: SetNull)
+  dependentTasks Task[]           @relation("TaskDependencies")
+  allocations    TaskAllocation[]
+  workSessions   WorkSession[]
+  changes        TaskChange[]
+  examTopics     ExamTopic[]
+  reminders      Reminder[]
+  sharedTaskCopy SharedTaskCopy?
+
+  @@index([userId, dueAt], name: "tasks_user_due")
+  @@index([userId, status], name: "tasks_user_status")
+  @@index([userId, updatedAt], name: "tasks_user_updated")
+  @@map("tasks")
+}
+
+model TaskAllocation {
+  taskId String  @map("task_id")
+  day    String  // YYYY-MM-DD
+  hours  Decimal @db.Decimal(4, 2)
+  status String  @default("planned") // planned | missed
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, day])
+  @@map("task_allocations")
+}
+
+// =============================================================
+// WORK SESSIONS & AUDIT LOGS
+// =============================================================
+
+model WorkSession {
+  id              String    @id @default(cuid())
+  taskId          String    @map("task_id")
+  userId          Int       @map("user_id")
+  startedAt       DateTime  @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  durationMinutes Int?      @map("duration_minutes")
+  source          String    @default("manual") // timer | manual | completion_adjustment
+  idempotencyKey  String?   @unique @map("idempotency_key")
+  voidedAt        DateTime? @map("voided_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  task    Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changes WorkSessionChange[]
+
+  @@index([taskId, startedAt], name: "work_sessions_task")
+  @@index([userId, startedAt], name: "work_sessions_user")
+  @@map("work_sessions")
+}
+
+model WorkSessionChange {
+  id            Int      @id @default(autoincrement())
+  workSessionId String   @map("work_session_id")
+  userId        Int      @map("user_id")
+  oldValues     Json?    @map("old_values")
+  newValues     Json     @map("new_values")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  workSession WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("work_session_changes")
+}
+
+model TaskChange {
+  id             Int      @id @default(autoincrement())
+  taskId         String   @map("task_id")
+  userId         Int      @map("user_id")
+  changeType     String   @map("change_type") // created | updated | completed | cancelled | restored | archived | reverted
+  oldValues      Json?    @map("old_values")
+  newValues      Json?    @map("new_values")
+  source         String   @default("manual") // manual | import | revert
+  importId       String?  @map("import_id")
+  idempotencyKey String?  @unique @map("idempotency_key")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  task   Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  import Import? @relation(fields: [importId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt(sort: Desc)], name: "task_changes_task")
+  @@map("task_changes")
+}
+
+// =============================================================
+// EFFORT ESTIMATION & TOPICS
+// =============================================================
+
+model CourseEffortDefault {
+  courseId String  @map("course_id")
+  type     String  // assignment | exam | lab | quiz | project | event
+  hours    Decimal @db.Decimal(5, 1)
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, type])
+  @@map("course_effort_defaults")
+}
+
+model EffortStat {
+  userId      Int     @map("user_id")
+  courseId    String  @map("course_id")
+  type        String
+  n           Int     @default(0)
+  medianRatio Decimal @default(1.0) @map("median_ratio") @db.Decimal(4, 2)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, courseId, type])
+  @@map("effort_stats")
+}
+
+model UserEffortStat {
+  userId      Int     @map("user_id")
+  type        String
+  n           Int     @default(0)
+  medianRatio Decimal @default(1.0) @map("median_ratio") @db.Decimal(4, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, type])
+  @@map("user_effort_stats")
+}
+
+model ExamTopic {
+  taskId     String @map("task_id")
+  name       String
+  confidence Int    // 1 to 5
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, name])
+  @@map("exam_topics")
+}
+
+// =============================================================
+// IMPORTS & INBOX
+// =============================================================
+
+model Import {
+  id                 String   @id @default(cuid())
+  userId             Int      @map("user_id")
+  rawText            String   @map("raw_text")
+  parsedJson         Json?    @map("parsed_json")
+  timezoneAtImport   String   @map("timezone_at_import")
+  dateOrderAtImport  String?  @map("date_order_at_import")
+  status             String   @default("pending") // pending | confirmed | discarded
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changes TaskChange[]
+
+  @@index([userId])
+  @@map("imports")
+}
+
+model InboxItem {
+  id        String    @id @default(cuid())
+  userId    Int       @map("user_id")
+  title     String
+  notes     String?
+  url       String?
+  source    String    @default("manual") // manual | browser_extension
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("inbox_items")
+}
+
+// =============================================================
+// CLASSES & COLLABORATION
+// =============================================================
+
+model Class {
+  id        String   @id @default(cuid())
+  name      String
+  joinCode  String   @unique @map("join_code")
+  ownerId   Int      @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  owner       User          @relation("ClassOwner", fields: [ownerId], references: [id])
+  members     ClassMember[]
+  sharedTasks SharedTask[]
+
+  @@map("classes")
+}
+
+model ClassMember {
+  classId  String   @map("class_id")
+  userId   Int      @map("user_id")
+  role     String   @default("member") // owner | editor | member
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([classId, userId])
+  @@map("class_members")
+}
+
+model SharedTask {
+  id        String   @id @default(cuid())
+  classId   String   @map("class_id")
+  title     String
+  type      String
+  dueAt     DateTime @map("due_at")
+  createdBy Int      @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  class         Class                    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  copies        SharedTaskCopy[]
+  confirmations SharedTaskConfirmation[]
+
+  @@map("shared_tasks")
+}
+
+model SharedTaskCopy {
+  sharedTaskId String   @map("shared_task_id")
+  userId       Int      @map("user_id")
+  taskId       String   @unique @map("task_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  sharedTask SharedTask @relation(fields: [sharedTaskId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task       Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([sharedTaskId, userId])
+  @@map("shared_task_copies")
+}
+
+model SharedTaskConfirmation {
+  sharedTaskId String @map("shared_task_id")
+  userId       Int    @map("user_id")
+
+  sharedTask SharedTask @relation(fields: [sharedTaskId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sharedTaskId, userId])
+  @@map("shared_task_confirmations")
+}
+
+// =============================================================
+// REMINDERS & TIMETABLE
+// =============================================================
+
+model Reminder {
+  id      Int       @id @default(autoincrement())
+  taskId  String    @map("task_id")
+  sendAt  DateTime  @map("send_at")
+  channel String    // in_app | email
+  sentAt  DateTime? @map("sent_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([sendAt], name: "reminders_due")
+  @@map("reminders")
+}
+
+model TimetableSlot {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  courseId  String?  @map("course_id")
+  weekday   Int      // 0 = Monday ... 6 = Sunday
+  startTime String   @map("start_time") // HH:mm
+  endTime   String   @map("end_time")   // HH:mm
+  kind      String   // lecture | lab | tutorial | other
+  room      String?
+  validFrom String   @map("valid_from") // YYYY-MM-DD
+  validTo   String?  @map("valid_to")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("timetable_slots")
+}
+

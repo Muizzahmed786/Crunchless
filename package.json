@@ -8,15 +8,17 @@
   },
   "scripts": {
     "dev": "concurrently -k -n api,web -c cyan,blue \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "node --watch server/index.js",
+    "dev:api": "node --env-file=.env --watch server/index.js",
     "dev:web": "vite --host 0.0.0.0",
     "build": "vite build",
-    "test": "node --test",
-    "start": "node server/index.js"
+    "test": "node --env-file=.env --test",
+    "start": "node --env-file=.env server/index.js"
   },
   "dependencies": {
     "@clerk/express": "^2.1.87",
     "@clerk/react": "^6.18.5",
+    "@prisma/client": "^6.4.1",
+    "dotenv": "^18.0.9",
     "express": "^5.1.0",
     "lucide-react": "^0.468.0",
     "pg": "^8.16.3",
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "concurrently": "^9.2.1",
+    "prisma": "^6.4.1",
     "tailwindcss": "^4.1.13",
     "vite": "^8.3.0"
   }
